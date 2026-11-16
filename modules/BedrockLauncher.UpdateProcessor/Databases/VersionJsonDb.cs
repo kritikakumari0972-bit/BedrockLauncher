@@ -64,7 +64,19 @@ namespace BedrockLauncher.UpdateProcessor.Databases
             if (!string.IsNullOrWhiteSpace(directory))
                 Directory.CreateDirectory(directory);
 
-            File.WriteAllText(filePath, json);
+            // Write beside the existing catalogue, then replace it only after the new file is complete.
+            // A failed write therefore leaves the last usable catalogue untouched.
+            string temporaryFilePath = filePath + ".tmp-" + Guid.NewGuid().ToString("N");
+            try
+            {
+                File.WriteAllText(temporaryFilePath, json);
+                File.Move(temporaryFilePath, filePath, true);
+            }
+            finally
+            {
+                if (File.Exists(temporaryFilePath))
+                    File.Delete(temporaryFilePath);
+            }
         }
 
         public void ParseJson(

@@ -77,6 +77,27 @@ namespace BedrockLauncher.Pipeline.Tests
         }
 
         [Fact]
+        public void GdkEntryWithWrongPackageVersionIsUnavailable()
+        {
+            const string wrongPackage =
+                "Microsoft.MinecraftUWP_1.26.5203.0_x64__8wekyb3d8bbwe";
+
+            var entry = new VersionInfoJson(
+                "1.26.40.5",
+                Guid.NewGuid().ToString(),
+                VersionType.Release,
+                "x64",
+                PackageType.GDK,
+                wrongPackage,
+                new[] { "https://assets1.xboxlive.com/packages/" + wrongPackage + ".msixvc" });
+
+            VersionCatalogValidationResult result = VersionCatalogValidator.Validate(entry);
+
+            Assert.Equal(VersionAvailability.Unavailable, result.Availability);
+            Assert.Contains("does not match", result.Reason);
+        }
+
+        [Fact]
         public void GdkEntryWithOnlyForeignPackageUrlsIsUnavailable()
         {
             const string otherPackage =

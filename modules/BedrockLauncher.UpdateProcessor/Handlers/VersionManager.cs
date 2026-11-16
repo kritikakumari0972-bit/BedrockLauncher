@@ -391,7 +391,8 @@ namespace BedrockLauncher.UpdateProcessor.Handlers
             //    curated list are not shown from the previous local copy.
             VersionJsonDb communityDB =
                 LoadJsonDBVersions(
-                    communityDBFile);
+                    communityDBFile,
+                    VersionCatalogSource.CommunityCatalogue);
 
             if (getNewVersions)
             {
@@ -407,7 +408,8 @@ namespace BedrockLauncher.UpdateProcessor.Handlers
             // 2. Microsoft Store database — UWP versions.
             VersionJsonDb winStoreDB =
                 LoadJsonDBVersions(
-                    winstoreDBFile);
+                    winstoreDBFile,
+                    VersionCatalogSource.MicrosoftStore);
 
             if (getNewVersions &&
                 checkMicrosoftStore)
@@ -533,7 +535,9 @@ namespace BedrockLauncher.UpdateProcessor.Handlers
             try
             {
                 catalog.ReadJson(
-                    gdkVersionsDBFile);
+                    gdkVersionsDBFile,
+                    null,
+                    VersionCatalogSource.PersistedGdkCatalogue);
             }
             catch (Exception ex)
             {
@@ -687,11 +691,13 @@ namespace BedrockLauncher.UpdateProcessor.Handlers
                 // Parse into a scratch database first: a malformed response must not clear the local list.
                 new VersionJsonDb().ParseRaw(
                     data,
-                    GetVersionArches());
+                    GetVersionArches(),
+                    VersionCatalogSource.CommunityCatalogue);
 
                 db.ParseRaw(
                     data,
-                    GetVersionArches());
+                    GetVersionArches(),
+                    VersionCatalogSource.CommunityCatalogue);
 
                 db.Save(
                     filePath);
@@ -765,7 +771,8 @@ namespace BedrockLauncher.UpdateProcessor.Handlers
 
                 jsonDb.AddVersion(
                     result,
-                    type);
+                    type,
+                    VersionCatalogSource.MicrosoftStore);
             }
             catch (Exception ex)
             {
@@ -778,7 +785,8 @@ namespace BedrockLauncher.UpdateProcessor.Handlers
         }
 
         private VersionJsonDb LoadJsonDBVersions(
-            string filePath)
+            string filePath,
+            VersionCatalogSource source)
         {
             try
             {
@@ -787,7 +795,8 @@ namespace BedrockLauncher.UpdateProcessor.Handlers
 
                 db.ReadJson(
                     filePath,
-                    GetVersionArches());
+                    GetVersionArches(),
+                    source);
 
                 db.WriteJson(
                     filePath);

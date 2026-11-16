@@ -96,6 +96,42 @@ namespace BedrockLauncher.Handlers
         }
 
         /// <summary>
+        /// Downloads and validates the exact required MSIXVC payload into the version cache without registering it in Windows.
+        /// </summary>
+        public async Task CacheGdkPackage(MCVersion v)
+        {
+            try
+            {
+                if (v == null)
+                    throw new ArgumentNullException(nameof(v));
+
+                if (v.PackageType != PackageType.GDK || v.RequiredGdkPackage == null)
+                    throw new InvalidOperationException(
+                        "The selected version does not have a verified GDK package identity.");
+
+                StartTask();
+                await EnsureMsixvcDownloaded(v, v.RequiredGdkPackage);
+                v.UpdateFolderSize();
+            }
+            catch (PackageManagerException e)
+            {
+                SetException(e);
+            }
+            catch (OperationCanceledException e)
+            {
+                SetException(new PackageDownloadCanceledException(e));
+            }
+            catch (Exception e)
+            {
+                SetException(new PackageDownloadFailedException(e));
+            }
+            finally
+            {
+                EndTask();
+            }
+        }
+
+        /// <summary>
         /// Install / Repair: makes the exact required package ready to launch, without launching it. When an installation
         /// is given, its data folder is linked too (like the UWP install does).
         /// </summary>

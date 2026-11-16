@@ -101,6 +101,17 @@ namespace BedrockLauncher.UpdateProcessor.Handlers
             return Versions.ToList();
         }
 
+        /// <summary>
+        /// Returns local catalogue validation for a selected entry. A catalogued UWP version still needs its
+        /// Microsoft Store link resolved, and a listed GDK URL still needs a real download and package validation.
+        /// </summary>
+        public VersionCatalogValidationResult GetVersionValidation(
+            VersionInfoJson version,
+            IEnumerable<string> supportedArchitectures = null)
+        {
+            return VersionCatalogValidator.Validate(version, supportedArchitectures);
+        }
+
         public bool TryGetGdkDownloadUrls(
             string versionUuid,
             out List<string> urls)

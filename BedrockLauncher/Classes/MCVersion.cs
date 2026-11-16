@@ -24,7 +24,15 @@ namespace BedrockLauncher.Classes
     [NotifyPropertyChanged(ExcludeExplicitProperties = Constants.Debugging.ExcludeExplicitProperties)]
     public class MCVersion
     {
-        public MCVersion(string uuid, string pkgId, string name, VersionType type, string architecture, PackageType packageType = PackageType.UWP, GdkPackageIdentity requiredGdkPackage = null)
+        public MCVersion(
+            string uuid,
+            string pkgId,
+            string name,
+            VersionType type,
+            string architecture,
+            PackageType packageType = PackageType.UWP,
+            GdkPackageIdentity requiredGdkPackage = null,
+            VersionCatalogValidationResult catalogValidation = null)
         {
             if (packageType != PackageType.GDK && requiredGdkPackage != null)
                 throw new ArgumentException("Only GDK versions have a required GDK package.", nameof(requiredGdkPackage));
@@ -36,6 +44,11 @@ namespace BedrockLauncher.Classes
             this.Architecture = architecture;
             this.PackageType = packageType;
             this.RequiredGdkPackage = requiredGdkPackage;
+            this.CatalogValidation = catalogValidation ??
+                new VersionCatalogValidationResult(
+                    VersionAvailability.Unknown,
+                    VersionCatalogSource.Unknown,
+                    "This local version has no remote catalogue metadata.");
         }
 
         public MCVersion(string name)
@@ -58,6 +71,86 @@ namespace BedrockLauncher.Classes
         /// null for a GDK version whose requirement could not be resolved (such a version cannot be launched).
         /// </summary>
         public GdkPackageIdentity RequiredGdkPackage { get; private set; }
+
+        /// <summary>Validation of the exact catalogue row used to create this library entry.</summary>
+        public VersionCatalogValidationResult CatalogValidation { get; private set; }
+
+        /// <summary>
+        /// True when the version has reusable local content: extracted UWP files, a cached exact GDK package,
+        /// or a matching persisted GDK install record.
+        /// </summary>
+        public bool IsCached
+        {
+            get
+            {
+                Depends.On(GameDirectory, PackageType, RequiredGdkPackage);
+                if (PackageType == PackageType.GDK)
+                {
+                    if (RequiredGdkPackage == null)
+                        return false;
+
+                    FileInfo package = new FileInfo(GdkPackageFilePath);
+                    if (package.Exists && package.Length > 0)
+                        return true;
+
+                    return GdkInstallRecord.TryRead(GameDirectory, out GdkPackageIdentity installed) &&
+                           RequiredGdkPackage.Equals(installed);
+                }
+
+                return File.Exists(ExecutablePath) &&
+                       (File.Exists(ManifestPath) ||
+                        File.Exists(Path.Combine(GameDirectory, "MicrosoftGame.Config")));
+            }
+        }
+
+        public bool CanCacheVersion =>
+            !IsCustom &&
+            CatalogValidation != null &&
+            CatalogValidation.CanAttemptDownload &&
+            !IsCached;
+
+        public string LibraryStatusText
+        {
+            get
+            {
+                if (IsCustom)
+                    return "Imported local version";
+
+                if (IsCached)
+                {
+                    if (PackageType == PackageType.GDK &&
+                        !File.Exists(GdkPackageFilePath) &&
+                        GdkInstallRecord.TryRead(GameDirectory, out GdkPackageIdentity installed) &&
+                        RequiredGdkPackage != null &&
+                        RequiredGdkPackage.Equals(installed))
+                    {
+                        return "Installed in Windows";
+                    }
+
+                    return PackageType == PackageType.GDK
+                        ? "Package cached"
+                        : "Files downloaded and ready";
+                }
+
+                switch (CatalogValidation?.Availability ?? VersionAvailability.Unknown)
+                {
+                    case VersionAvailability.Catalogued:
+                        return "Available · Store link resolved when downloading";
+                    case VersionAvailability.DownloadSourceListed:
+                        return "Download source listed";
+                    case VersionAvailability.UnsupportedArchitecture:
+                        return "Unsupported architecture";
+                    case VersionAvailability.Unavailable:
+                        return "Unavailable";
+                    default:
+                        return "Catalogue status unknown";
+                }
+            }
+        }
+
+        public string LibraryStatusReason =>
+            CatalogValidation?.Reason ?? string.Empty;
+
         public bool IsBeta
         {
             get => Type == VersionType.Beta;

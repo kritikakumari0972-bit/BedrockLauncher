@@ -150,7 +150,15 @@ namespace BedrockLauncher.UpdateProcessor.Databases
             string architecture = !string.IsNullOrEmpty(architectureHint) ? architectureHint : identity.Architecture;
             string uuid = CreateStableUuid($"gdk:{type}:{versionName}:{architecture}").ToString();
 
-            Versions.Add(new VersionInfoJson(versionName, uuid, type, architecture, PackageType.GDK, identity.FullName, urlList.ToArray()));
+            Versions.Add(new VersionInfoJson(
+                versionName,
+                uuid,
+                type,
+                architecture,
+                PackageType.GDK,
+                identity.FullName,
+                urlList.ToArray(),
+                VersionCatalogSource.GdkLinksManifest));
         }
 
         /// <summary>

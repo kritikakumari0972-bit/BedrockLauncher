@@ -135,7 +135,8 @@ namespace BedrockLauncher.Downloaders
                     entry.GetVersionType(),
                     entry.GetArchitecture(),
                     entry.GetPackageType(),
-                    entry.GetRequiredGdkPackage()));
+                    entry.GetRequiredGdkPackage(),
+                    VersionCatalogValidator.Validate(entry)));
             }
 
             versions.Sort((x, y) => x.Compare(y));

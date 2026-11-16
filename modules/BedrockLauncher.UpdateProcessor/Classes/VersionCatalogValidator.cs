@@ -104,6 +104,34 @@ namespace BedrockLauncher.UpdateProcessor.Classes
                         "The GDK entry does not identify one exact required package.");
                 }
 
+                if (!MinecraftPackageFamilies.BelongsTo(requiredPackage, version.type))
+                {
+                    return Result(
+                        version,
+                        VersionAvailability.Unavailable,
+                        "The required GDK package belongs to a different Minecraft release channel.");
+                }
+
+                if (!string.Equals(
+                        architecture,
+                        requiredPackage.Architecture,
+                        StringComparison.OrdinalIgnoreCase))
+                {
+                    return Result(
+                        version,
+                        VersionAvailability.Unavailable,
+                        "The GDK package identity architecture does not match the catalogue architecture.");
+                }
+
+                if (!GdkLinksDb.TryGetPackageVersion(version.version, out Version expectedPackageVersion) ||
+                    expectedPackageVersion != requiredPackage.Version)
+                {
+                    return Result(
+                        version,
+                        VersionAvailability.Unavailable,
+                        "The GDK package identity version does not match the Minecraft version entry.");
+                }
+
                 string[] matchingUrls =
                     VersionJsonDb.FilterUrlsForIdentity(version.downloadUrls, requiredPackage);
 

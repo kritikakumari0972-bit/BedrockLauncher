@@ -25,6 +25,9 @@ namespace BedrockLauncher.UpdateProcessor.Classes
         /// <summary>GDK only: CDN resources whose file name is exactly <see cref="packageIdentity"/>.</summary>
         public string[] downloadUrls;
 
+        /// <summary>Catalogue that supplied this entry; assigned when a catalogue is loaded.</summary>
+        public VersionCatalogSource catalogSource;
+
         public VersionInfoJson(
             string version,
             string uuid,
@@ -32,7 +35,8 @@ namespace BedrockLauncher.UpdateProcessor.Classes
             string architecture,
             PackageType packageType = PackageType.UWP,
             string packageIdentity = null,
-            string[] downloadUrls = null)
+            string[] downloadUrls = null,
+            VersionCatalogSource catalogSource = VersionCatalogSource.Unknown)
         {
             if (!Guid.TryParse(uuid, out this.uuid))
                 this.uuid = Guid.Empty;
@@ -43,6 +47,7 @@ namespace BedrockLauncher.UpdateProcessor.Classes
             this.packageType = packageType;
             this.packageIdentity = packageType == PackageType.GDK ? packageIdentity : null;
             this.downloadUrls = packageType == PackageType.GDK ? downloadUrls ?? Array.Empty<string>() : null;
+            this.catalogSource = catalogSource;
         }
 
         /// <summary>The persisted required GDK package, or null when this is not a GDK version or it is unresolved.</summary>

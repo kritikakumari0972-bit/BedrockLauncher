@@ -526,6 +526,24 @@ namespace BedrockLauncher.Handlers
                 EndTask();
             }
         }
+        /// <summary>
+        /// Downloads and prepares the selected version for later use without registering or launching it.
+        /// UWP packages are downloaded and extracted; GDK packages are cached under their exact package identity.
+        /// </summary>
+        public Task CacheVersion(MCVersion v)
+        {
+            if (v == null)
+                throw new ArgumentNullException(nameof(v));
+
+            return v.PackageType switch
+            {
+                PackageType.UWP => DownloadPackage(v),
+                PackageType.GDK => CacheGdkPackage(v),
+                _ => throw new InvalidOperationException(
+                    $"Minecraft {v.Name} has an unsupported package type ({v.PackageType}).")
+            };
+        }
+
         public void Cancel()
         {
             if (CancelSource != null && !CancelSource.IsCancellationRequested) CancelSource.Cancel();

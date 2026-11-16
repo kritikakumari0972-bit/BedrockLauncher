@@ -166,8 +166,15 @@ namespace BedrockLauncher.UpdateProcessor.Databases
 
         public void AddVersion(
             List<UpdateInfo> updates,
+            VersionType type)
+        {
+            AddVersion(updates, type, VersionCatalogSource.Unknown);
+        }
+
+        public void AddVersion(
+            List<UpdateInfo> updates,
             VersionType type,
-            VersionCatalogSource source = VersionCatalogSource.Unknown)
+            VersionCatalogSource source)
         {
             if (updates == null || updates.Count == 0)
                 return;

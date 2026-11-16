@@ -688,11 +688,19 @@ namespace BedrockLauncher.UpdateProcessor.Handlers
                 string data =
                     await resp.Content.ReadAsStringAsync();
 
-                // Parse into a scratch database first: a malformed response must not clear the local list.
-                new VersionJsonDb().ParseRaw(
+                // Parse into a scratch database first: malformed or unexpectedly empty responses must not clear
+                // a previously populated local catalogue.
+                var refreshedDb = new VersionJsonDb();
+                refreshedDb.ParseRaw(
                     data,
                     GetVersionArches(),
                     VersionCatalogSource.CommunityCatalogue);
+
+                if (refreshedDb.list.Count == 0 && db.list.Count > 0)
+                {
+                    throw new InvalidDataException(
+                        "The refreshed community catalogue contained no valid versions; keeping the cached catalogue.");
+                }
 
                 db.ParseRaw(
                     data,
@@ -719,9 +727,8 @@ namespace BedrockLauncher.UpdateProcessor.Handlers
         {
             try
             {
-                if (File.Exists(jsonFilePath))
-                    File.Delete(jsonFilePath);
-
+                // Keep the existing database in memory and on disk until refreshed results have been collected.
+                // FetchStoreVersions handles individual channel failures; a partial refresh still preserves old rows.
                 await FetchStoreVersions(
                     VersionType.Release,
                     jsonDb);

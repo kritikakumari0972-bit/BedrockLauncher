@@ -33,7 +33,8 @@ namespace BedrockLauncher.UpdateProcessor.Databases
 
         public void ReadJson(
             string filePath,
-            Dictionary<Guid, string> architectures = null)
+            Dictionary<Guid, string> architectures = null,
+            VersionCatalogSource source = VersionCatalogSource.Unknown)
         {
             if (!File.Exists(filePath))
             {
@@ -42,7 +43,7 @@ namespace BedrockLauncher.UpdateProcessor.Databases
             }
 
             string data = File.ReadAllText(filePath);
-            ParseJson(data, architectures);
+            ParseJson(data, architectures, source);
         }
 
         public void WriteJson(string filePath)
@@ -68,7 +69,8 @@ namespace BedrockLauncher.UpdateProcessor.Databases
 
         public void ParseJson(
             string json,
-            Dictionary<Guid, string> architectures = null)
+            Dictionary<Guid, string> architectures = null,
+            VersionCatalogSource source = VersionCatalogSource.Unknown)
         {
             list.Clear();
 
@@ -148,7 +150,8 @@ namespace BedrockLauncher.UpdateProcessor.Databases
                     architecture,
                     packageType,
                     packageIdentity,
-                    downloadUrls);
+                    downloadUrls,
+                    source);
 
                 if (!list.Any(x =>
                     x.uuid == parsedVersion.uuid &&
@@ -163,7 +166,8 @@ namespace BedrockLauncher.UpdateProcessor.Databases
 
         public void AddVersion(
             List<UpdateInfo> updates,
-            VersionType type)
+            VersionType type,
+            VersionCatalogSource source = VersionCatalogSource.Unknown)
         {
             if (updates == null || updates.Count == 0)
                 return;
@@ -194,7 +198,10 @@ namespace BedrockLauncher.UpdateProcessor.Databases
                     update.updateId,
                     type,
                     architecture,
-                    PackageType.UWP);
+                    PackageType.UWP,
+                    null,
+                    null,
+                    source);
 
                 if (!list.Any(x =>
                     x.uuid == info.uuid &&
@@ -258,7 +265,10 @@ namespace BedrockLauncher.UpdateProcessor.Databases
                     discovered.architecture,
                     PackageType.GDK,
                     discoveredIdentity.FullName,
-                    discoveredUrls));
+                    discoveredUrls,
+                    discovered.catalogSource == VersionCatalogSource.Unknown
+                        ? VersionCatalogSource.GdkLinksManifest
+                        : discovered.catalogSource));
 
                 SortVersions();
                 return GdkCatalogMergeResult.Added;
@@ -307,7 +317,15 @@ namespace BedrockLauncher.UpdateProcessor.Databases
             string data,
             Dictionary<Guid, string> architectures)
         {
-            ParseJson(data, architectures);
+            ParseRaw(data, architectures, VersionCatalogSource.Unknown);
+        }
+
+        public void ParseRaw(
+            string data,
+            Dictionary<Guid, string> architectures,
+            VersionCatalogSource source)
+        {
+            ParseJson(data, architectures, source);
         }
 
         // Compatibility alias for older code that used the misspelled name.

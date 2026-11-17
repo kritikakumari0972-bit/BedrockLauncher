@@ -12,12 +12,13 @@
     <UserControl.Resources>
         <conv:InverseBooleanConverter x:Key="InvertBoolean"/>
         <conv:BooleanAndConverter x:Key="BooleanAndConverter"/>
+        <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter"/>
     </UserControl.Resources>
     <Grid x:Name="InstallationEntry" Margin="0,8,0,8">
         <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="540"></ColumnDefinition>
+            <ColumnDefinition Width="500"></ColumnDefinition>
             <ColumnDefinition></ColumnDefinition>
-            <ColumnDefinition Width="240"></ColumnDefinition>
+            <ColumnDefinition Width="270"></ColumnDefinition>
         </Grid.ColumnDefinitions>
         <Grid HorizontalAlignment="Left">
             <Grid.ColumnDefinitions>
@@ -31,12 +32,31 @@
             </Image>
             <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="10,0,0,0">
                 <TextBlock FontSize="16" Foreground="{DynamicResource PrimaryText.Foreground}" FontWeight="DemiBold" Padding="0,0,0,0" Text="{Binding DisplayName}"/>
-                <TextBlock FontSize="11" Foreground="{DynamicResource SecondaryText.Foreground}" Visibility="Visible" FontWeight="SemiBold" Padding="0,0,0,0" Text="{Binding InstallationSize}"/>
-                <TextBlock FontSize="9" Foreground="{DynamicResource TertiaryText.Foreground}" Visibility="Visible" FontWeight="SemiBold" Padding="0,0,0,0" Text="{Binding UUID}"/>
+                <TextBlock FontSize="11"
+                           Foreground="{DynamicResource SecondaryText.Foreground}"
+                           FontWeight="SemiBold"
+                           Text="{Binding LibraryStatusText}"
+                           ToolTip="{Binding LibraryStatusReason}"/>
+                <TextBlock FontSize="10"
+                           Foreground="{DynamicResource TertiaryText.Foreground}"
+                           Text="{Binding InstallationSize}"/>
+                <TextBlock FontSize="9"
+                           Foreground="{DynamicResource TertiaryText.Foreground}"
+                           Text="{Binding UUID}"/>
             </StackPanel>
         </Grid>
         <StackPanel HorizontalAlignment="Right" Orientation="Horizontal" Grid.Column="2" x:Name="ButtonPanel" Visibility="Collapsed">
-            <Button x:Name="Repair" Click="Repair_Click" Content="{DynamicResource GeneralText_Repair}" Style="{DynamicResource DialogButton_Orange}">
+            <Button x:Name="Cache"
+                    Click="Cache_Click"
+                    Content="Cache"
+                    ToolTip="{Binding LibraryStatusReason}"
+                    Visibility="{Binding CanCacheVersion, Converter={StaticResource BooleanToVisibilityConverter}}"
+                    Style="{DynamicResource DialogButton_Green}">
+                <Button.IsEnabled>
+                    <Binding Source="{x:Static viewModels:MainDataModel.Default}" Path="ProgressBarState.AllowEditing" Mode="OneWay"/>
+                </Button.IsEnabled>
+            </Button>
+            <Button x:Name="Repair" Click="Repair_Click" Content="{DynamicResource GeneralText_Repair}" Style="{DynamicResource DialogButton_Orange}" Visibility="{Binding IsCached, Converter={StaticResource BooleanToVisibilityConverter}}">
                 <Button.IsEnabled>
                     <MultiBinding Converter="{StaticResource BooleanAndConverter}">
                         <Binding Source="{x:Static viewModels:MainDataModel.Default}" Path="ProgressBarState.AllowEditing" Mode="OneWay"/>
@@ -44,7 +64,7 @@
                     </MultiBinding>
                 </Button.IsEnabled>
             </Button>
-            <Button x:Name="Folder" Click="Folder_Click" VerticalContentAlignment="Stretch" HorizontalContentAlignment="Stretch" FontWeight="Bold" Style="{DynamicResource DialogButton}">
+            <Button x:Name="Folder" Click="Folder_Click" Visibility="{Binding IsCached, Converter={StaticResource BooleanToVisibilityConverter}}" VerticalContentAlignment="Stretch" HorizontalContentAlignment="Stretch" FontWeight="Bold" Style="{DynamicResource DialogButton}">
                 <Button.Content>
                     <Grid Width="16" Height="16">
                         <Path Stretch="Uniform" Fill="{DynamicResource OveralElements.Background}" StrokeThickness="0" Data="{DynamicResource FolderIcon}"/>

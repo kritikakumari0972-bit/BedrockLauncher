@@ -11,6 +11,77 @@ namespace BedrockLauncher.Pipeline.Tests
             new GdkLaunchPipeline(platform, message => log?.Add(message));
 
         [Fact]
+        public async Task EnsureReadyInstallsExactPackageWithoutLaunchingOrPreparingSaveData()
+        {
+            var required = Identities.Release("1.26.4005.0");
+            var platform = new FakeGdkPlatform();
+            var request = Identities.GdkRequest(required);
+            request.InstallationDataPath = @"C:\Launcher\installations\profile\install\packageData";
+
+            InstalledPackageInfo ready = await Pipeline(platform).EnsureReadyAsync(request);
+
+            Assert.Equal(required.FullName, ready.FullName);
+            Assert.Equal(new[] { required }, platform.InstallRequests);
+            Assert.Contains("Install", platform.Calls);
+            Assert.Contains("Bootstrap", platform.Calls);
+            Assert.Contains("Record", platform.Calls);
+            Assert.DoesNotContain(platform.Calls, call => call.StartsWith("Activate:"));
+            Assert.DoesNotContain(platform.Calls, call => call.StartsWith("SaveData:"));
+        }
+
+        [Fact]
+        public async Task EnsureReadyReusesExactPackageWithoutInstallingOrLaunching()
+        {
+            var required = Identities.Release("1.26.4005.0");
+            var platform = new FakeGdkPlatform();
+            platform.Installed.Add(FakeGdkPlatform.Package(required));
+
+            InstalledPackageInfo ready = await Pipeline(platform).EnsureReadyAsync(Identities.GdkRequest(required));
+
+            Assert.Equal(required.FullName, ready.FullName);
+            Assert.DoesNotContain("Install", platform.Calls);
+            Assert.DoesNotContain(platform.Calls, call => call.StartsWith("Activate:"));
+            Assert.DoesNotContain("SaveData", platform.Calls);
+        }
+
+        [Fact]
+        public async Task EnsureReadyDeclinesNewerPackageReplacementWithoutChangingInstalledPackage()
+        {
+            var required = Identities.Release("1.26.4005.0");
+            var newer = Identities.Release("1.26.5203.0");
+            var platform = new FakeGdkPlatform { ConfirmReplace = false };
+            platform.Installed.Add(FakeGdkPlatform.Package(newer));
+            var request = Identities.GdkRequest(required);
+            request.InstallationDataPath = @"C:\Launcher\installations\profile\install\packageData";
+
+            await Assert.ThrowsAsync<GdkVersionMismatchException>(
+                () => Pipeline(platform).EnsureReadyAsync(request));
+
+            Assert.Single(platform.Installed, item => item.FullName == newer.FullName);
+            Assert.DoesNotContain("Install", platform.Calls);
+            Assert.DoesNotContain("Record", platform.Calls);
+            Assert.DoesNotContain(platform.Calls, call => call.StartsWith("Activate:"));
+            Assert.DoesNotContain(platform.Calls, call => call.StartsWith("SaveData:"));
+        }
+
+        [Fact]
+        public async Task EnsureReadyRejectsWrongRegisteredIdentityBeforeRecordingInstall()
+        {
+            var required = Identities.Release("1.26.4005.0");
+            var platform = new FakeGdkPlatform
+            {
+                InstallResult = _ => Identities.Release("1.26.5203.0")
+            };
+
+            await Assert.ThrowsAsync<GdkVersionMismatchException>(
+                () => Pipeline(platform).EnsureReadyAsync(Identities.GdkRequest(required)));
+
+            Assert.DoesNotContain("Record", platform.Calls);
+            Assert.DoesNotContain("Bootstrap", platform.Calls);
+            Assert.DoesNotContain(platform.Calls, call => call.StartsWith("Activate:"));
+        }
+
+        [Fact]
         public async Task ExactInstalledPackageIsReusedWithoutInstalling()
         {
             var required = Identities.Release("1.26.4005.0");

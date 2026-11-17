@@ -135,7 +135,7 @@ namespace BedrockLauncher.Handlers
         /// Install / Repair: makes the exact required package ready to launch, without launching it. When an installation
         /// is given, its data folder is linked too (like the UWP install does).
         /// </summary>
-        public async Task InstallGdkPackage(
+        public async Task<bool> InstallGdkPackage(
             MCVersion v,
             string installationDataPath = null)
         {
@@ -151,20 +151,25 @@ namespace BedrockLauncher.Handlers
 
                 if (!string.IsNullOrWhiteSpace(installationDataPath))
                     platform.PrepareSaveData(request);
+
+                return true;
             }
             catch (PackageManagerException e)
             {
                 SetException(e);
+                return false;
             }
             catch (OperationCanceledException e)
             {
                 SetException(
                     new PackageDownloadCanceledException(e));
+                return false;
             }
             catch (Exception e)
             {
                 SetException(
                     new AppInstallFailedException(e));
+                return false;
             }
             finally
             {

@@ -136,7 +136,15 @@ namespace BedrockLauncher.Handlers
             string destination = MainDataModel.Default.FilePaths.GetInstallationPackageDataPath(profileUUID, name);
             Trace.WriteLine($"Backing up {source.Path} to {destination}");
 
-            await Task.Run(() => CopyDirectory(source.Path, destination));
+            SaveDataRecoveryCopyResult result = await Task.Run(() =>
+                SaveDataRecoveryCopier.CopyDirectoryTransactional(
+                    source.Path,
+                    destination,
+                    (copiedBytes, totalBytes) =>
+                        MainDataModel.Default.ProgressBarState.SetProgressBarProgress(copiedBytes, totalBytes)));
+
+            Trace.WriteLine(
+                $"Recovered {result.FileCount} files in {result.DirectoryCount} folders ({result.BytesCopied} bytes) to {destination}");
 
             MCVersion version = PickVersion(type, source.PackageType);
             await Application.Current.Dispatcher.InvokeAsync(() =>
@@ -165,37 +173,6 @@ namespace BedrockLauncher.Handlers
                 : new MCVersion(Constants.LATEST_RELEASE_UUID, Constants.LATEST_RELEASE_UUID, "", VersionType.Release, Constants.CurrentArchitecture);
         }
 
-        private static void CopyDirectory(string source, string destination)
-        {
-            var progress = MainDataModel.Default.ProgressBarState;
-            List<FileInfo> files = new List<FileInfo>();
-            var pending = new Stack<DirectoryInfo>();
-            pending.Push(new DirectoryInfo(source));
 
-            // Links inside the data are not followed: only real files are copied.
-            while (pending.Count > 0)
-            {
-                DirectoryInfo directory = pending.Pop();
-                foreach (FileSystemInfo entry in directory.EnumerateFileSystemInfos())
-                {
-                    if (entry.Attributes.HasFlag(FileAttributes.ReparsePoint))
-                        continue;
-
-                    if (entry is DirectoryInfo subDirectory)
-                        pending.Push(subDirectory);
-                    else if (entry is FileInfo file)
-                        files.Add(file);
-                }
-            }
-
-            Directory.CreateDirectory(destination);
-            for (int i = 0; i < files.Count; i++)
-            {
-                string target = Path.Combine(destination, Path.GetRelativePath(source, files[i].FullName));
-                Directory.CreateDirectory(Path.GetDirectoryName(target));
-                files[i].CopyTo(target, overwrite: true);
-                progress.SetProgressBarProgress(i + 1, files.Count);
-            }
-        }
     }
 }

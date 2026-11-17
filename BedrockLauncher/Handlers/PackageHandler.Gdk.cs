@@ -147,10 +147,7 @@ namespace BedrockLauncher.Handlers
                 var platform = new WindowsGdkPlatform(this, v);
                 var pipeline = new GdkLaunchPipeline(platform, LogGdk);
 
-                await pipeline.EnsureReadyAsync(request);
-
-                if (!string.IsNullOrWhiteSpace(installationDataPath))
-                    platform.PrepareSaveData(request);
+                await pipeline.InstallAsync(request);
 
                 return true;
             }

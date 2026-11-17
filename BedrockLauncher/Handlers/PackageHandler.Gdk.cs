@@ -832,6 +832,12 @@ namespace BedrockLauncher.Handlers
                     guard.LinkTarget =
                         info.LinkTarget;
 
+                    if (string.IsNullOrWhiteSpace(guard.LinkTarget))
+                    {
+                        throw new IOException(
+                            "Windows reports that the Minecraft save-data path is a reparse point, but its target could not be resolved. The package cannot be removed safely.");
+                    }
+
                     Directory.Delete(
                         mojang,
                         false);
@@ -843,38 +849,36 @@ namespace BedrockLauncher.Handlers
                     return guard;
                 }
 
-                bool hasContent =
-                    Directory.EnumerateFileSystemEntries(
-                        mojang)
-                    .Any();
-
-                if (!hasContent)
-                    return guard;
-
-                // Outside the package's app data folder (which Windows deletes), on the same drive so it is a move.
-                string backup =
+                // Keep the backup outside the package's app-data tree and on the same drive.
+                // The helper performs one atomic directory move and never falls back to a partial copy.
+                string backupRoot =
                     Path.Combine(
                         localAppData,
-                        SaveDataBackupFolderName,
-                        $"{Constants.GetPackageFamily(type)}_{DateTime.Now:yyyy-MM-dd_HH-mm-ss}");
-
-                Directory.CreateDirectory(
-                    Path.GetDirectoryName(backup));
-
-                Directory.Move(
-                    mojang,
-                    backup);
+                        SaveDataBackupFolderName);
 
                 guard.MovedBackupPath =
-                    backup;
+                    SaveDataBackupMover.MoveDirectoryToBackup(
+                        mojang,
+                        guard.PackageDataPath,
+                        backupRoot,
+                        Constants.GetPackageFamily(type));
+
+                if (string.IsNullOrEmpty(guard.MovedBackupPath))
+                    return guard;
 
                 Trace.WriteLine(
-                    $"Moved save-data folder aside before removal: {backup}");
+                    $"Moved save-data folder aside before removal: {guard.MovedBackupPath}");
             }
             catch (Exception ex)
             {
                 Trace.WriteLine(
                     $"Could not protect save data before removal: {ex}");
+
+                // Fail closed. Removing the Windows package after a failed backup could destroy worlds.
+                throw new PackageRemovalFailedException(
+                    "Minecraft save data could not be safely protected. The currently installed package was not removed. " +
+                    "Check that the launcher can access the package data folder and has enough free space, then retry.",
+                    ex);
             }
 
             return guard;

@@ -147,3 +147,15 @@ Windows limitation: these tests exercise platform-independent package-selection 
 - Both Windows CI workflows now provision the .NET 10 Windows Desktop runtime used by the current PostSharp build host; the launcher still targets .NET 8. This addresses the observed runner error where PostSharp could not locate `Microsoft.WindowsDesktop.App 10.0.15`.
 
 Verification note: these changes have been committed, but their Windows CI run has not yet been observed to pass. The tests validate the filesystem mover on the CI runner; they do not replace an end-to-end test against real Windows package removal, Appx/GDK registration, or Minecraft world migration.
+
+
+### Phase 3 recovery import reliability
+
+- The existing Settings → Backup Save Data recovery flow now uses a transactional copier rather than writing directly into the final installation folder.
+- Recovery first inventories real files and directories, ignores reparse points rather than following them, and copies into a unique staging folder beside the intended installation data directory.
+- It checks copied file counts and lengths, confirms the source file list/folder structure did not change during the copy, and only then promotes the staging folder with a same-volume directory move.
+- A pre-existing destination is never overwritten. A failed/cancelled copy removes its staging folder and leaves the source backup untouched; no Recovery Data installation is created until promotion succeeds.
+- Recovery logs the imported file count, folder count, and copied bytes. The original saved data remains in place so the user can retain it as a backup.
+- Regression tests cover successful folder/file preservation, empty directories, cancellation cleanup, source mutation during copy, destination collision, and overlapping source/destination paths.
+
+Verification note: the earlier Windows build and pipeline tests passed on commit `0b65eef`. This recovery-copy slice is newer and is awaiting its own Windows CI build/test run. The copier performs structural and byte-length verification; it is not a cryptographic authenticity check for the original world files.

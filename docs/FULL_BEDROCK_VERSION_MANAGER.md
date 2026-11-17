@@ -135,3 +135,15 @@ Windows limitation: these tests exercise platform-independent package-selection 
 - World/save data is backed up and verified before a destructive package change.
 - The UI distinguishes installed, cached, downloadable, unsupported, and unavailable versions.
 - Play is enabled only when the exact selected package is validated and ready.
+
+
+### Phase 3 save-data removal guard and CI runtime fix
+
+- Added a shared `SaveDataBackupMover` used by the actual Windows package-removal guard. Non-empty `com.mojang` data is moved atomically to a unique backup directory outside the package's data tree and on the same volume.
+- The mover rejects a backup destination inside the package folder and refuses cross-volume moves. It never falls back to a recursive copy that could be interrupted halfway through.
+- If save-data inspection, link detachment, or backup creation fails, package removal now fails closed with a visible package-manager error. The currently registered package is not removed. A reparse point with an unresolved target is also treated as unsafe.
+- The package-removal progress state is reset even when backup protection aborts before Windows is asked to remove anything.
+- Regression tests cover moving world files intact, rejecting a backup destination inside the package tree, preserving the original folder when backup creation fails, and skipping unnecessary backups for empty folders.
+- Both Windows CI workflows now provision the .NET 10 Windows Desktop runtime used by the current PostSharp build host; the launcher still targets .NET 8. This addresses the observed runner error where PostSharp could not locate `Microsoft.WindowsDesktop.App 10.0.15`.
+
+Verification note: these changes have been committed, but their Windows CI run has not yet been observed to pass. The tests validate the filesystem mover on the CI runner; they do not replace an end-to-end test against real Windows package removal, Appx/GDK registration, or Minecraft world migration.

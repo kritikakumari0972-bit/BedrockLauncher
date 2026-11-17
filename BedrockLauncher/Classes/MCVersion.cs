@@ -124,10 +124,17 @@ namespace BedrockLauncher.Classes
             get
             {
                 Depends.On(IsCustom, CatalogValidation, IsCached);
-                return !IsCustom &&
-                       (IsCached ||
-                        (CatalogValidation != null &&
-                         CatalogValidation.CanAttemptDownload));
+
+                if (IsCustom ||
+                    CatalogValidation == null ||
+                    CatalogValidation.Availability == VersionAvailability.UnsupportedArchitecture)
+                {
+                    return false;
+                }
+
+                // A verified local cache can still be used when its remote source has disappeared. An
+                // unsupported architecture is never made playable merely because files happen to exist.
+                return IsCached || CatalogValidation.CanAttemptDownload;
             }
         }
 

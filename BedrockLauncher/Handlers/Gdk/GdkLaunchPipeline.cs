@@ -72,7 +72,11 @@ namespace BedrockLauncher.Handlers
             this.log = log ?? (_ => { });
         }
 
-        public async Task<InstalledPackageInfo> LaunchAsync(GdkLaunchRequest request)
+        /// <summary>
+        /// Installs/repairs the requested exact GDK package and prepares this installation's save-data redirect.
+        /// This method deliberately does not activate or launch Minecraft.
+        /// </summary>
+        public async Task<InstalledPackageInfo> InstallAsync(GdkLaunchRequest request)
         {
             InstalledPackageInfo package = await EnsureReadyAsync(request);
 
@@ -81,6 +85,13 @@ namespace BedrockLauncher.Handlers
                 platform.PrepareSaveData(request);
                 log("Save data: OK");
             }
+
+            return package;
+        }
+
+        public async Task<InstalledPackageInfo> LaunchAsync(GdkLaunchRequest request)
+        {
+            InstalledPackageInfo package = await InstallAsync(request);
 
             if (!await platform.ActivateAsync(request, package))
             {

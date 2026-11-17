@@ -104,6 +104,9 @@ namespace BedrockLauncher.Pages
                                                          Task.Run(() => Navigator.Navigate(MainWindowFrame, GamePage));
                                                      });
 
+        /// <summary>Opens the Play tab and keeps its selected installation in view.</summary>
+        public void NavigateToPlayScreen() => GamePage.NavigateToPlayScreenFromExternal();
+
         public void NavigateToSettings() => this.Dispatcher.Invoke(() =>
                                                      {
                                                          Navigator.UpdatePageIndex(4);

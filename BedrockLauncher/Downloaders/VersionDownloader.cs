@@ -136,12 +136,16 @@ namespace BedrockLauncher.Downloaders
                     entry.GetArchitecture(),
                     entry.GetPackageType(),
                     entry.GetRequiredGdkPackage(),
-                    VersionCatalogValidator.Validate(entry)));
+                    VersionCatalogValidator.Validate(
+                        entry,
+                        new[] { Constants.CurrentArchitecture })));
             }
 
             versions.Sort((x, y) => x.Compare(y));
 
-            MCVersion latestRelease = versions.First(
+            // A catalogue may temporarily omit a channel or the current architecture. Keep the version
+            // library usable in that case; latest-channel shortcuts are added only when a matching row exists.
+            MCVersion latestRelease = versions.FirstOrDefault(
                 x => x.IsRelease &&
                 VersionDbExtensions.DoesVersionArchMatch(
                     Constants.CurrentArchitecture,
@@ -154,7 +158,7 @@ namespace BedrockLauncher.Downloaders
                     x.Architecture),
                 null);
 
-            MCVersion latestPreview = versions.First(
+            MCVersion latestPreview = versions.FirstOrDefault(
                 x => x.IsPreview &&
                 VersionDbExtensions.DoesVersionArchMatch(
                     Constants.CurrentArchitecture,
@@ -164,26 +168,29 @@ namespace BedrockLauncher.Downloaders
             latestBetaRef = latestBeta;
             latestPreviewRef = latestPreview;
 
-            MCVersion latest_preview = new MCVersion(
-                Constants.LATEST_PREVIEW_UUID,
-                Constants.LATEST_PREVIEW_UUID,
-                Application.Current.Resources["EditInstallationScreen_LatestPreview"].ToString(),
-                latestPreview.Type,
-                Constants.CurrentArchitecture,
-                latestPreview.PackageType,
-                latestPreview.RequiredGdkPackage);
+            if (latestPreview != null)
+            {
+                versions.Insert(0, new MCVersion(
+                    Constants.LATEST_PREVIEW_UUID,
+                    Constants.LATEST_PREVIEW_UUID,
+                    Application.Current.Resources["EditInstallationScreen_LatestPreview"].ToString(),
+                    latestPreview.Type,
+                    Constants.CurrentArchitecture,
+                    latestPreview.PackageType,
+                    latestPreview.RequiredGdkPackage));
+            }
 
-            MCVersion latest_release = new MCVersion(
-                Constants.LATEST_RELEASE_UUID,
-                Constants.LATEST_RELEASE_UUID,
-                Application.Current.Resources["EditInstallationScreen_LatestRelease"].ToString(),
-                latestRelease.Type,
-                Constants.CurrentArchitecture,
-                latestRelease.PackageType,
-                latestRelease.RequiredGdkPackage);
-
-            versions.Insert(0, latest_preview);
-            versions.Insert(0, latest_release);
+            if (latestRelease != null)
+            {
+                versions.Insert(0, new MCVersion(
+                    Constants.LATEST_RELEASE_UUID,
+                    Constants.LATEST_RELEASE_UUID,
+                    Application.Current.Resources["EditInstallationScreen_LatestRelease"].ToString(),
+                    latestRelease.Type,
+                    Constants.CurrentArchitecture,
+                    latestRelease.PackageType,
+                    latestRelease.RequiredGdkPackage));
+            }
 
             if (latestBeta != null)
             {

@@ -100,7 +100,7 @@ The Versions library now has **Add to Play** and **Install** actions for catalog
 - The GDK route still checks Gaming Services, downloads the exact required MSIXVC package, confirms/removes an occupying package when needed, deploys through Windows, validates the registered package, records the installation, and prepares save data.
 - A successful install returns the user to the Play screen with the selected installation. GDK install now returns an explicit success result, so a handled failure is not treated as a successful installation.
 - The existing Play button remains responsible for actual launch. The existing package-family replacement confirmation and save-data safeguards are not bypassed.
-- Unavailable or unsupported entries do not expose these actions.
+- Uncached unavailable entries and unsupported architectures do not expose these actions. A cached package can still be used after its remote source disappears, but Windows must validate it during installation.
 
 The UI integration still needs a successful Windows build and end-to-end testing before it can be called verified.
 

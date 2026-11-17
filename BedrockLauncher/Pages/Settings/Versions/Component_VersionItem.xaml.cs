@@ -71,6 +71,17 @@ namespace BedrockLauncher.Pages.Settings.Versions
             button.ContextMenu.IsOpen = true;
         }
 
+        private void AddToPlay_Click(object sender, RoutedEventArgs e)
+        {
+            Button button = sender as Button;
+            MCVersion version = button?.DataContext as MCVersion;
+
+            if (version == null || !version.CanAddToPlay)
+                return;
+
+            GetParent()?.AddVersionToPlay(version);
+        }
+
         private async void Cache_Click(object sender, RoutedEventArgs e)
         {
             Button button = sender as Button;

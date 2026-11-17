@@ -28,6 +28,21 @@ jobs:
         with:
           dotnet-version: "8.0.x"
 
+      - name: Install Windows Desktop runtime required by PostSharp
+        shell: pwsh
+        run: |
+          $desktopRuntimeVersion = "10.0.15"
+          $desktopRuntimePath = Join-Path $env:DOTNET_ROOT "shared/Microsoft.WindowsDesktop.App/$desktopRuntimeVersion"
+          if (-not (Test-Path $desktopRuntimePath)) {
+            $installer = Join-Path $env:RUNNER_TEMP "dotnet-install.ps1"
+            Invoke-WebRequest -Uri "https://dot.net/v1/dotnet-install.ps1" -OutFile $installer
+            & $installer -Runtime windowsdesktop -Version $desktopRuntimeVersion -InstallDir $env:DOTNET_ROOT -NoPath
+            if ($LASTEXITCODE -ne 0) {
+              throw "Could not install Microsoft.WindowsDesktop.App $desktopRuntimeVersion required by PostSharp."
+            }
+          }
+          dotnet --list-runtimes
+
       - name: Setup MSBuild
         uses: microsoft/setup-msbuild@v2
 

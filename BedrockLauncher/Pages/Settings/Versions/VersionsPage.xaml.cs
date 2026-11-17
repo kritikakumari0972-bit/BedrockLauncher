@@ -21,6 +21,10 @@ namespace BedrockLauncher.Pages.Settings.Versions
     public partial class VersionsPage : Page
     {
         private bool hasInitalized = false;
+        private string searchText = string.Empty;
+        private bool showUnavailable = false;
+        private bool cachedOnly = false;
+
         public VersionsPage()
         {
             this.DataContext = MainDataModel.Default;
@@ -67,7 +71,73 @@ namespace BedrockLauncher.Pages.Settings.Versions
             RefreshVersionsList(sender, e);
         }
 
-        private void CollectionViewSource_Filter(object sender, FilterEventArgs e) => e.Accepted = FilterSortingHandler.Filter_VersionList(e.Item);
+        private void CollectionViewSource_Filter(object sender, FilterEventArgs e)
+        {
+            if (!(e.Item is BedrockLauncher.Classes.MCVersion version))
+            {
+                e.Accepted = false;
+                return;
+            }
+
+            bool isCatalogueEntry =
+                !version.IsCustom &&
+                version.CatalogValidation != null &&
+                version.CatalogValidation.Source != BedrockLauncher.UpdateProcessor.Enums.VersionCatalogSource.Unknown;
+
+            // Preserve locally imported versions, but don't expose synthetic "Latest Release" selector rows here.
+            if (!isCatalogueEntry)
+            {
+                e.Accepted = version.IsCustom && version.IsInstalled &&
+                             MatchesSearch(version);
+                return;
+            }
+
+            var settings = Properties.LauncherSettings.Default;
+
+            if (version.IsRelease && !settings.ShowReleases) { e.Accepted = false; return; }
+            if (version.IsBeta && !settings.ShowBetas) { e.Accepted = false; return; }
+            if (version.IsPreview && !settings.ShowPreviews) { e.Accepted = false; return; }
+            if (version.PackageType == BedrockLauncher.UpdateProcessor.Enums.PackageType.UWP && !settings.ShowUWP) { e.Accepted = false; return; }
+            if (version.PackageType == BedrockLauncher.UpdateProcessor.Enums.PackageType.GDK && !settings.ShowGDK) { e.Accepted = false; return; }
+
+            if (cachedOnly && !version.IsCached) { e.Accepted = false; return; }
+
+            if (!showUnavailable &&
+                (version.CatalogValidation.Availability == BedrockLauncher.UpdateProcessor.Enums.VersionAvailability.Unavailable ||
+                 version.CatalogValidation.Availability == BedrockLauncher.UpdateProcessor.Enums.VersionAvailability.UnsupportedArchitecture))
+            {
+                e.Accepted = false;
+                return;
+            }
+
+            e.Accepted = MatchesSearch(version);
+        }
+
+        private bool MatchesSearch(BedrockLauncher.Classes.MCVersion version)
+        {
+            if (string.IsNullOrWhiteSpace(searchText))
+                return true;
+
+            string query = searchText.Trim();
+            return (version.DisplayName?.IndexOf(query, StringComparison.OrdinalIgnoreCase) >= 0) ||
+                   (version.Name?.IndexOf(query, StringComparison.OrdinalIgnoreCase) >= 0) ||
+                   (version.Architecture?.IndexOf(query, StringComparison.OrdinalIgnoreCase) >= 0) ||
+                   (version.PackageTypeString?.IndexOf(query, StringComparison.OrdinalIgnoreCase) >= 0) ||
+                   (version.UUID?.IndexOf(query, StringComparison.OrdinalIgnoreCase) >= 0);
+        }
+
+        private void SearchBox_TextChanged(object sender, TextChangedEventArgs e)
+        {
+            searchText = SearchBox?.Text ?? string.Empty;
+            RefreshVersionsList(sender, e);
+        }
+
+        private void LibraryFilter_Changed(object sender, RoutedEventArgs e)
+        {
+            showUnavailable = ShowUnavailableCheckBox?.IsChecked == true;
+            cachedOnly = CachedOnlyCheckBox?.IsChecked == true;
+            RefreshVersionsList(sender, e);
+        }
 
         private async void AddButton_Click(object sender, RoutedEventArgs e)
         {

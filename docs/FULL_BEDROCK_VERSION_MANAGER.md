@@ -90,6 +90,18 @@ Important limits:
 - Verify payload size and package identity before promoting a download into the cache.
 - Resume or safely restart interrupted downloads where supported.
 
+### Phase 3 first integration slice
+
+The Versions library now has an **Add to Play** action for catalogue entries whose package can be attempted or is already cached.
+
+- The action creates a profile installation for the exact selected version UUID, or selects the existing matching installation instead of creating duplicates.
+- It selects that installation in launcher settings and returns the user to the Bedrock Play screen.
+- The existing Play button then runs the real package path: UWP installation/registration/launch or GDK exact-package deployment/validation/launch.
+- The existing package-family replacement confirmation and save-data safeguards remain in the package handlers; the new library action does not bypass them.
+- Unavailable or unsupported entries do not expose this action.
+
+This slice does not yet add a separate one-click **Install without launching** control in each catalogue row. Users can use the existing Repair/Install action for cached versions or the normal Play workflow; a dedicated install/switch workflow still needs end-to-end Windows validation.
+
 ### M3 — Real install, switch, and play
 - Route each selected version through its matching existing pipeline.
 - Require confirmation before replacing a registered package.

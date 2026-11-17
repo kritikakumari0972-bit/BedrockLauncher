@@ -61,6 +61,18 @@
                     <Binding Source="{x:Static viewModels:MainDataModel.Default}" Path="ProgressBarState.AllowEditing" Mode="OneWay"/>
                 </Button.IsEnabled>
             </Button>
+            <Button x:Name="InstallVersionButton"
+                    Click="InstallVersion_Click"
+                    Content="Install"
+                    MinWidth="64"
+                    Margin="0,0,5,0"
+                    ToolTip="Install this exact version for the current Play profile without launching"
+                    Visibility="{Binding CanAddToPlay, Converter={StaticResource BooleanToVisibilityConverter}}"
+                    Style="{DynamicResource DialogButton_Orange}">
+                <Button.IsEnabled>
+                    <Binding Source="{x:Static viewModels:MainDataModel.Default}" Path="ProgressBarState.AllowEditing" Mode="OneWay"/>
+                </Button.IsEnabled>
+            </Button>
             <Button x:Name="Cache"
                     Click="Cache_Click"
                     Content="Cache"

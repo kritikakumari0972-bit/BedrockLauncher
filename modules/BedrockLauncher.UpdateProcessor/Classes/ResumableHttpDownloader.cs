@@ -80,9 +80,7 @@ namespace BedrockLauncher.UpdateProcessor.Classes
             {
                 cancellationToken.ThrowIfCancellationRequested();
 
-                long offset = canResume && attempt == 0
-                    ? partialLength
-                    : 0;
+                long offset = canResume && attempt == 0 ? partialLength : 0;
 
                 using (var request = new HttpRequestMessage(HttpMethod.Get, uri))
                 {
@@ -122,9 +120,10 @@ namespace BedrockLauncher.UpdateProcessor.Classes
 
                             bool validatorsMatch = ValidatorsMatch(metadata, response);
                             bool lengthMatches =
-                                !metadata.ExpectedLength.HasValue ||
-                                !range?.Length.HasValue == true ||
-                                metadata.ExpectedLength.Value == range.Length.Value;
+                                range != null &&
+                                (metadata.ExpectedLength <= 0 ||
+                                 !range.Length.HasValue ||
+                                 metadata.ExpectedLength == range.Length.Value);
 
                             if (!validRange || !validatorsMatch || !lengthMatches)
                             {
@@ -134,10 +133,9 @@ namespace BedrockLauncher.UpdateProcessor.Classes
                             }
 
                             append = true;
-                            expectedLength =
-                                range.Length ??
-                                metadata.ExpectedLength ??
-                                -1;
+                            expectedLength = range.Length.HasValue
+                                ? range.Length.Value
+                                : metadata.ExpectedLength;
 
                             if (expectedLength <= 0 && response.Content.Headers.ContentLength.HasValue)
                                 expectedLength = offset + response.Content.Headers.ContentLength.Value;
@@ -221,11 +219,7 @@ namespace BedrockLauncher.UpdateProcessor.Classes
                         }
 
                         PromoteCompletedFile(temporaryPath, fullDestination, metadataPath);
-
-                        progress?.Invoke(
-                            transferred,
-                            expectedLength > 0 ? expectedLength : transferred);
-
+                        progress?.Invoke(transferred, expectedLength > 0 ? expectedLength : transferred);
                         return;
                     }
                 }
@@ -240,8 +234,7 @@ namespace BedrockLauncher.UpdateProcessor.Classes
             long expectedLength,
             ResumeMetadata previous)
         {
-            string etag = response.Headers.ETag != null &&
-                          !response.Headers.ETag.IsWeak
+            string etag = response.Headers.ETag != null && !response.Headers.ETag.IsWeak
                 ? response.Headers.ETag.ToString()
                 : previous?.ETag;
 
@@ -269,9 +262,7 @@ namespace BedrockLauncher.UpdateProcessor.Classes
             return null;
         }
 
-        private static bool ValidatorsMatch(
-            ResumeMetadata previous,
-            HttpResponseMessage response)
+        private static bool ValidatorsMatch(ResumeMetadata previous, HttpResponseMessage response)
         {
             if (!string.IsNullOrWhiteSpace(previous.ETag) &&
                 response.Headers.ETag != null &&
@@ -337,8 +328,7 @@ namespace BedrockLauncher.UpdateProcessor.Classes
 
             try
             {
-                return JsonSerializer.Deserialize<ResumeMetadata>(
-                    File.ReadAllText(metadataPath));
+                return JsonSerializer.Deserialize<ResumeMetadata>(File.ReadAllText(metadataPath));
             }
             catch (Exception ex) when (
                 ex is IOException ||
@@ -349,13 +339,10 @@ namespace BedrockLauncher.UpdateProcessor.Classes
             }
         }
 
-        private static Task WriteMetadataAsync(
-            string metadataPath,
-            ResumeMetadata metadata)
+        private static Task WriteMetadataAsync(string metadataPath, ResumeMetadata metadata)
         {
             string temporaryMetadataPath = metadataPath + ".tmp";
-            string json = JsonSerializer.Serialize(metadata);
-            File.WriteAllText(temporaryMetadataPath, json);
+            File.WriteAllText(temporaryMetadataPath, JsonSerializer.Serialize(metadata));
             File.Move(temporaryMetadataPath, metadataPath, true);
             return Task.CompletedTask;
         }
@@ -369,10 +356,7 @@ namespace BedrockLauncher.UpdateProcessor.Classes
             }
         }
 
-        private static void PromoteCompletedFile(
-            string temporaryPath,
-            string destination,
-            string metadataPath)
+        private static void PromoteCompletedFile(string temporaryPath, string destination, string metadataPath)
         {
             if (!File.Exists(temporaryPath))
                 throw new IOException("The completed download file does not exist.");

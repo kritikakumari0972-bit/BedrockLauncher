@@ -83,7 +83,7 @@ namespace BedrockLauncher.Classes
         {
             get
             {
-                Depends.On(GameDirectory, PackageType, RequiredGdkPackage);
+                Depends.On(GameDirectory, PackageType, RequiredGdkPackage, RequireSizeRecalculation);
                 if (PackageType == PackageType.GDK)
                 {
                     if (RequiredGdkPackage == null)
@@ -103,16 +103,24 @@ namespace BedrockLauncher.Classes
             }
         }
 
-        public bool CanCacheVersion =>
-            !IsCustom &&
-            CatalogValidation != null &&
-            CatalogValidation.CanAttemptDownload &&
-            !IsCached;
+        public bool CanCacheVersion
+        {
+            get
+            {
+                Depends.On(IsCustom, CatalogValidation, IsCached);
+                return !IsCustom &&
+                       CatalogValidation != null &&
+                       CatalogValidation.CanAttemptDownload &&
+                       !IsCached;
+            }
+        }
 
         public string LibraryStatusText
         {
             get
             {
+                Depends.On(IsCustom, IsCached, CatalogValidation, RequireSizeRecalculation);
+
                 if (IsCustom)
                     return "Imported local version";
 

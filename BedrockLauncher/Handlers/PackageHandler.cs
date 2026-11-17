@@ -315,13 +315,25 @@ namespace BedrockLauncher.Handlers
         /// <summary>The extracted manifest must be the package of the version's own family (release vs preview).</summary>
         private static void ValidateUwpManifestIdentity(MCVersion v)
         {
-            var (name, _, _) = MCVersionExtensions.GetCommonPackageValues(v.ManifestPath);
-            string expected = MinecraftPackageFamilies.GetIdentityName(v.Type);
+            ValidateUwpManifestIdentity(v, v.ManifestPath);
+        }
 
-            if (!string.Equals(name, expected, StringComparison.OrdinalIgnoreCase))
+        private static void ValidateUwpManifestIdentity(MCVersion v, string manifestPath)
+        {
+            string expectedName = MinecraftPackageFamilies.GetIdentityName(v.Type);
+
+            try
+            {
+                UwpPackageArchiveValidator.Validate(
+                    File.ReadAllText(manifestPath),
+                    expectedName,
+                    v.Architecture);
+            }
+            catch (InvalidDataException ex)
             {
                 throw new PackageRegistrationFailedException(new InvalidDataException(
-                    $"The manifest in {v.GameDirectory} identifies '{name}', but Minecraft {v.Name} ({v.Type}) is {expected}."));
+                    $"The manifest for Minecraft {v.Name} ({v.Type}, {v.Architecture}) is not the selected package: {ex.Message}",
+                    ex));
             }
         }
 
@@ -816,6 +828,11 @@ namespace BedrockLauncher.Handlers
 
         private async Task ExtractPackage(MCVersion v, string dlPath, string bkpsPath, string pkgPath, CancellationTokenSource cancelSource)
         {
+            string stagingDirectory = v.GameDirectory + ".staging-" + Guid.NewGuid().ToString("N");
+            string previousDirectory = v.GameDirectory + ".previous-" + Guid.NewGuid().ToString("N");
+            bool previousMoved = false;
+            bool committed = false;
+
             try
             {
                 Trace.WriteLine("Extraction started");
@@ -828,20 +845,69 @@ namespace BedrockLauncher.Handlers
                 }
 
                 EnsureSafeLauncherVersionDirectory(v.GameDirectory);
-                if (Directory.Exists(v.GameDirectory))
-                    await DirectoryExtensions.DeleteAsync(v.GameDirectory, (x, y, phase) => ProgressWrapper(x, y, phase));
+                EnsureSafeLauncherVersionDirectory(stagingDirectory);
+                EnsureSafeLauncherVersionDirectory(previousDirectory);
 
-                using var fileStream = File.OpenRead(pkgPath);
-                var progress = new Progress<ZipProgress>();
-                progress.ProgressChanged += (s, z) => MainDataModel.Default.ProgressBarState.SetProgressBarProgress(currentProgress: z.Processed, totalProgress: z.Total);
-                await Task.Run(() =>
+                // Never erase the last usable version folder before the incoming package has been fully extracted
+                // and its manifest has been checked against the exact selected release family and architecture.
+                Directory.CreateDirectory(stagingDirectory);
+
+                using (var fileStream = File.OpenRead(pkgPath))
                 {
-                    using var zipArchive = new ZipArchive(fileStream);
-                    zipArchive.ExtractToDirectory(v.GameDirectory, progress, cancelSource);
-                });
+                    var progress = new Progress<ZipProgress>();
+                    progress.ProgressChanged += (s, z) =>
+                        MainDataModel.Default.ProgressBarState.SetProgressBarProgress(
+                            currentProgress: z.Processed,
+                            totalProgress: z.Total);
 
-                await File.WriteAllTextAsync(v.IdentificationPath, v.PackageID);
-                File.Delete(Path.Combine(v.GameDirectory, "AppxSignature.p7x"));
+                    await Task.Run(() =>
+                    {
+                        using var zipArchive = new ZipArchive(fileStream);
+                        zipArchive.ExtractToDirectory(stagingDirectory, progress, cancelSource);
+                    });
+                }
+
+                string stagingManifest = Path.Combine(stagingDirectory, MCVersionExtensions.MainifestFileName);
+                ValidateUwpManifestIdentity(v, stagingManifest);
+
+                await File.WriteAllTextAsync(
+                    Path.Combine(stagingDirectory, MCVersionExtensions.IdentificationFilename),
+                    v.PackageID);
+
+                string signaturePath = Path.Combine(stagingDirectory, "AppxSignature.p7x");
+                if (File.Exists(signaturePath))
+                    File.Delete(signaturePath);
+
+                if (Directory.Exists(v.GameDirectory))
+                {
+                    Directory.Move(v.GameDirectory, previousDirectory);
+                    previousMoved = true;
+                }
+
+                try
+                {
+                    Directory.Move(stagingDirectory, v.GameDirectory);
+                    committed = true;
+                }
+                catch
+                {
+                    // Restore the previous package folder if the new staged folder could not be promoted.
+                    if (previousMoved &&
+                        !Directory.Exists(v.GameDirectory) &&
+                        Directory.Exists(previousDirectory))
+                    {
+                        Directory.Move(previousDirectory, v.GameDirectory);
+                        previousMoved = false;
+                    }
+
+                    throw;
+                }
+
+                if (previousMoved)
+                {
+                    await DeleteDirectoryIfExists(previousDirectory);
+                    previousMoved = false;
+                }
 
                 // "Keep Appx Package": keep the package in AppxBackups so the version can be reinstalled without
                 // downloading it again; otherwise remove every copy, including a cached one this install came from.
@@ -855,7 +921,7 @@ namespace BedrockLauncher.Handlers
                     DeletePackageCopies(dlPath, bkpsPath, pkgPath);
                 }
 
-                Trace.WriteLine("Extracted successfully");
+                Trace.WriteLine("Extracted and validated successfully");
             }
             catch (PackageManagerException e)
             {
@@ -865,12 +931,36 @@ namespace BedrockLauncher.Handlers
             catch (TaskCanceledException e)
             {
                 MainDataModel.Default.ProgressBarState.SetProgressBarState(LauncherState.isCanceling);
-                await DeleteDirectoryIfExists(v.GameDirectory);
+
+                if (Directory.Exists(stagingDirectory))
+                    await DeleteDirectoryIfExists(stagingDirectory);
+
+                if (!committed &&
+                    previousMoved &&
+                    !Directory.Exists(v.GameDirectory) &&
+                    Directory.Exists(previousDirectory))
+                {
+                    Directory.Move(previousDirectory, v.GameDirectory);
+                    previousMoved = false;
+                }
+
                 ResetTask();
                 throw new PackageExtractionCanceledException(e);
             }
             catch (Exception e)
             {
+                if (Directory.Exists(stagingDirectory))
+                    await DeleteDirectoryIfExists(stagingDirectory);
+
+                if (!committed &&
+                    previousMoved &&
+                    !Directory.Exists(v.GameDirectory) &&
+                    Directory.Exists(previousDirectory))
+                {
+                    Directory.Move(previousDirectory, v.GameDirectory);
+                    previousMoved = false;
+                }
+
                 if (e is InvalidDataException || e.InnerException is InvalidDataException)
                     DeletePackageCopies(dlPath, bkpsPath, pkgPath);
 
@@ -879,6 +969,9 @@ namespace BedrockLauncher.Handlers
             }
             finally
             {
+                if (Directory.Exists(stagingDirectory))
+                    await DeleteDirectoryIfExists(stagingDirectory);
+
                 ResetTask();
             }
         }

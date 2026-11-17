@@ -46,6 +46,8 @@ namespace BedrockLauncher
 
         private void Window_MouseDown(object sender, MouseButtonEventArgs e) => Keyboard.ClearFocus();
 
+        public void NavigateToPlayScreen() => MainPage.NavigateToPlayScreen();
+
         private void Window_Closing(object sender, CancelEventArgs e) => MainViewModel.Default.AttemptClose(sender, e); private async void Window_Initialized(object sender, EventArgs e)
         {
             Panel.SetZIndex(MainFrame, 0);

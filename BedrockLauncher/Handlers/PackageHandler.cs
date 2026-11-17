@@ -315,17 +315,12 @@ namespace BedrockLauncher.Handlers
         /// <summary>The extracted manifest must be the package of the version's own family (release vs preview).</summary>
         private static void ValidateUwpManifestIdentity(MCVersion v)
         {
-            ValidateUwpManifestIdentity(v, v.ManifestPath);
-        }
-
-        private static void ValidateUwpManifestIdentity(MCVersion v, string manifestPath)
-        {
             string expectedName = MinecraftPackageFamilies.GetIdentityName(v.Type);
 
             try
             {
                 UwpPackageArchiveValidator.Validate(
-                    File.ReadAllText(manifestPath),
+                    File.ReadAllText(v.ManifestPath),
                     expectedName,
                     v.Architecture);
             }
@@ -868,7 +863,10 @@ namespace BedrockLauncher.Handlers
                 }
 
                 string stagingManifest = Path.Combine(stagingDirectory, MCVersionExtensions.MainifestFileName);
-                ValidateUwpManifestIdentity(v, stagingManifest);
+                UwpPackageArchiveValidator.Validate(
+                    File.ReadAllText(stagingManifest),
+                    MinecraftPackageFamilies.GetIdentityName(v.Type),
+                    v.Architecture);
 
                 await File.WriteAllTextAsync(
                     Path.Combine(stagingDirectory, MCVersionExtensions.IdentificationFilename),

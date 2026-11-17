@@ -26,7 +26,7 @@ namespace BedrockLauncher.Pipeline.Tests
                 Assert.True(Directory.Exists(destination));
                 Assert.Equal(2, result.FileCount);
                 Assert.True(result.DirectoryCount >= 2);
-                Assert.Equal(19, result.BytesCopied);
+                Assert.Equal(20, result.BytesCopied);
                 Assert.Equal("world-meta", File.ReadAllText(Path.Combine(destination, "level.dat")));
                 Assert.Equal("Test world",
                     File.ReadAllText(Path.Combine(destination, "minecraftWorlds", "world-one", "levelname.txt")));

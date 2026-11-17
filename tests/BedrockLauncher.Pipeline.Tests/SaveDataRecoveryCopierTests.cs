@@ -72,6 +72,46 @@ namespace BedrockLauncher.Pipeline.Tests
         }
 
         [Fact]
+        public void SourceChangesDuringCopyAbortRecoveryAndKeepOriginalData()
+        {
+            string root = CreateRoot();
+            try
+            {
+                string source = Path.Combine(root, "source");
+                string destination = Path.Combine(root, "install", "packageData");
+                Directory.CreateDirectory(source);
+                File.WriteAllText(Path.Combine(source, "a.dat"), "first");
+                File.WriteAllText(Path.Combine(source, "b.dat"), "second");
+                bool changed = false;
+
+                Assert.Throws<IOException>(() =>
+                    SaveDataRecoveryCopier.CopyDirectoryTransactional(
+                        source,
+                        destination,
+                        (copied, total) =>
+                        {
+                            if (!changed)
+                            {
+                                changed = true;
+                                File.WriteAllText(Path.Combine(source, "added-during-copy.dat"), "new file");
+                            }
+                        }));
+
+                Assert.False(Directory.Exists(destination));
+                Assert.Equal("first", File.ReadAllText(Path.Combine(source, "a.dat")));
+                Assert.Equal("second", File.ReadAllText(Path.Combine(source, "b.dat")));
+                Assert.Equal("new file", File.ReadAllText(Path.Combine(source, "added-during-copy.dat")));
+                Assert.Empty(Directory.GetDirectories(
+                    Path.GetDirectoryName(destination),
+                    Path.GetFileName(destination) + ".recovery-staging-*"));
+            }
+            finally
+            {
+                DeleteRoot(root);
+            }
+        }
+
+        [Fact]
         public void ExistingDestinationIsNeverOverwritten()
         {
             string root = CreateRoot();

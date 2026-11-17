@@ -75,6 +75,22 @@
                                              VerticalContentAlignment="Center"
                                              ToolTip="Search Minecraft version, architecture, package type, or ID"
                                              Tag="Search versions..."/>
+                                    <TextBlock Text="Search versions..."
+                                               Margin="8,0,0,0"
+                                               VerticalAlignment="Center"
+                                               Foreground="#FF888888"
+                                               IsHitTestVisible="False">
+                                        <TextBlock.Style>
+                                            <Style TargetType="TextBlock">
+                                                <Setter Property="Visibility" Value="Collapsed"/>
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding Text, ElementName=SearchBox}" Value="">
+                                                        <Setter Property="Visibility" Value="Visible"/>
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </TextBlock.Style>
+                                    </TextBlock>
                                 </Grid>
                             </Border>
                             <CheckBox x:Name="CachedOnlyCheckBox"

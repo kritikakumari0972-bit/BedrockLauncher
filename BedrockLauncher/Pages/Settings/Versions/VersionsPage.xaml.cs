@@ -36,20 +36,29 @@ namespace BedrockLauncher.Pages.Settings.Versions
 
         }
 
-        private void RefreshVersionsList(object sender, RoutedEventArgs e)
+        private void RefreshVersionView()
         {
-            Properties.LauncherSettings.Default.Save();
             this.Dispatcher.Invoke(() =>
             {
-                if (VersionsList != null) Handlers.FilterSortingHandler.Refresh(VersionsList.ItemsSource);
+                if (VersionsList != null)
+                    Handlers.FilterSortingHandler.Refresh(VersionsList.ItemsSource);
             });
         }
 
+        private void RefreshVersionsList(object sender, RoutedEventArgs e)
+        {
+            Properties.LauncherSettings.Default.Save();
+            RefreshVersionView();
+        }
+
         public void RefreshVersionRows() => this.Dispatcher.Invoke(() =>
-                                                     {
-                                                         foreach (var ver in MainDataModel.Default.Versions) ver.UpdateFolderSize();
-                                                         if (VersionsList != null) Handlers.FilterSortingHandler.Refresh(VersionsList.ItemsSource);
-                                                     });
+        {
+            foreach (var version in MainDataModel.Default.Versions)
+                version.UpdateFolderSize();
+
+            if (VersionsList != null)
+                Handlers.FilterSortingHandler.Refresh(VersionsList.ItemsSource);
+        });
 
         private async void PageHost_Loaded(object sender, RoutedEventArgs e)
         {
@@ -129,14 +138,14 @@ namespace BedrockLauncher.Pages.Settings.Versions
         private void SearchBox_TextChanged(object sender, TextChangedEventArgs e)
         {
             searchText = SearchBox?.Text ?? string.Empty;
-            RefreshVersionsList(sender, e);
+            RefreshVersionView();
         }
 
         private void LibraryFilter_Changed(object sender, RoutedEventArgs e)
         {
             showUnavailable = ShowUnavailableCheckBox?.IsChecked == true;
             cachedOnly = CachedOnlyCheckBox?.IsChecked == true;
-            RefreshVersionsList(sender, e);
+            RefreshVersionView();
         }
 
         private async void AddButton_Click(object sender, RoutedEventArgs e)

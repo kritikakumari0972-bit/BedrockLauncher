@@ -92,15 +92,17 @@ Important limits:
 
 ### Phase 3 first integration slice
 
-The Versions library now has an **Add to Play** action for catalogue entries whose package can be attempted or is already cached.
+The Versions library now has **Add to Play** and **Install** actions for catalogue entries whose package can be attempted or is already cached.
 
-- The action creates a profile installation for the exact selected version UUID, or selects the existing matching installation instead of creating duplicates.
-- It selects that installation in launcher settings and returns the user to the Bedrock Play screen.
-- The existing Play button then runs the real package path: UWP installation/registration/launch or GDK exact-package deployment/validation/launch.
-- The existing package-family replacement confirmation and save-data safeguards remain in the package handlers; the new library action does not bypass them.
-- Unavailable or unsupported entries do not expose this action.
+- **Add to Play** creates a profile installation for the exact selected version UUID, or selects the existing matching installation instead of creating duplicates. It selects that installation and returns the user to the Bedrock Play screen.
+- **Install** creates/selects the same profile entry, then calls the existing UWP `InstallPackage` or GDK `InstallGdkPackage` pipeline with that installation's save-data directory. It does not launch Minecraft.
+- The UWP route still downloads/extracts as needed, checks the package manifest, confirms package-family replacement when necessary, registers the package, and redirects save data.
+- The GDK route still checks Gaming Services, downloads the exact required MSIXVC package, confirms/removes an occupying package when needed, deploys through Windows, validates the registered package, records the installation, and prepares save data.
+- A successful install returns the user to the Play screen with the selected installation. GDK install now returns an explicit success result, so a handled failure is not treated as a successful installation.
+- The existing Play button remains responsible for actual launch. The existing package-family replacement confirmation and save-data safeguards are not bypassed.
+- Unavailable or unsupported entries do not expose these actions.
 
-This slice does not yet add a separate one-click **Install without launching** control in each catalogue row. Users can use the existing Repair/Install action for cached versions or the normal Play workflow; a dedicated install/switch workflow still needs end-to-end Windows validation.
+The UI integration still needs a successful Windows build and end-to-end testing before it can be called verified.
 
 ### M3 — Real install, switch, and play
 - Route each selected version through its matching existing pipeline.

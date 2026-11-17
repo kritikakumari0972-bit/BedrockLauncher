@@ -104,6 +104,17 @@ The Versions library now has **Add to Play** and **Install** actions for catalog
 
 The UI integration still needs a successful Windows build and end-to-end testing before it can be called verified.
 
+### Phase 3 install reliability slice
+
+- The GDK package pipeline now exposes an explicit `InstallAsync` operation. It ensures the exact required package is registered and validated, then prepares the selected installation's save-data redirect. It does not activate Minecraft.
+- The Windows GDK `InstallGdkPackage` wrapper calls this install-only operation and reports an explicit success/failure result to the library UI.
+- Regression tests cover exact-package install-only behaviour, reuse of an already registered exact package, save-data preparation order, save-data failure, declined package replacement, and rejection of a package Windows registered with the wrong identity. Install-only tests assert that no activation call occurs.
+- UWP package extraction now takes place in a unique staging directory. The staging manifest must identify the selected release/preview family, a four-part package version, and the exact catalogue architecture before the staged folder can replace the existing version folder.
+- The existing version directory is moved aside and restored if promotion fails. Failed or cancelled extraction removes only the staging directory, not the previous version's content.
+- The UWP manifest identity validator has six focused tests and is included in the pipeline regression test project.
+
+Windows limitation: these tests exercise platform-independent package-selection and manifest-validation logic. Actual Windows Appx registration, GDK Gaming Services deployment, and world-data migration still require Windows end-to-end tests.
+
 ### M3 — Real install, switch, and play
 - Route each selected version through its matching existing pipeline.
 - Require confirmation before replacing a registered package.

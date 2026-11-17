@@ -115,6 +115,22 @@ namespace BedrockLauncher.Classes
             }
         }
 
+        /// <summary>
+        /// True when this catalogue entry can be added to the current Play profile.
+        /// The Play pipeline will still resolve/download and validate the exact UWP/GDK package.
+        /// </summary>
+        public bool CanAddToPlay
+        {
+            get
+            {
+                Depends.On(IsCustom, CatalogValidation, IsCached);
+                return !IsCustom &&
+                       (IsCached ||
+                        (CatalogValidation != null &&
+                         CatalogValidation.CanAttemptDownload));
+            }
+        }
+
         public string LibraryStatusText
         {
             get

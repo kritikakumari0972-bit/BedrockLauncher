@@ -51,9 +51,9 @@ jobs:
             $installer = Join-Path $env:RUNNER_TEMP "dotnet-install.ps1"
             Invoke-WebRequest -Uri "https://dot.net/v1/dotnet-install.ps1" -OutFile $installer
             & $installer -Runtime windowsdesktop -Version $desktopRuntimeVersion -InstallDir $env:DOTNET_ROOT -NoPath
-            if ($LASTEXITCODE -ne 0) {
-              throw "Could not install Microsoft.WindowsDesktop.App $desktopRuntimeVersion required by PostSharp."
-            }
+          }
+          if (-not (Test-Path $desktopRuntimePath)) {
+            throw "Microsoft.WindowsDesktop.App $desktopRuntimeVersion was not installed; PostSharp cannot build without it."
           }
           dotnet --list-runtimes
 

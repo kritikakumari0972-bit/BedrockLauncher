@@ -148,6 +148,58 @@ namespace BedrockLauncher.Pages.Settings.Versions
             RefreshVersionView();
         }
 
+        /// <summary>
+        /// Adds the selected catalogue version to the current profile and selects it on the Play page.
+        /// The existing Play action remains responsible for the real UWP/GDK package install and launch.
+        /// </summary>
+        public void AddVersionToPlay(BedrockLauncher.Classes.MCVersion version)
+        {
+            if (version == null || !version.CanAddToPlay)
+                return;
+
+            var config = MainDataModel.Default.Config;
+            var profile = config.CurrentProfile;
+            if (profile?.Installations == null)
+                return;
+
+            BedrockLauncher.Classes.BLInstallation installation =
+                profile.Installations.FirstOrDefault(x =>
+                    x.VersioningMode == BedrockLauncher.Enums.VersioningMode.None &&
+                    string.Equals(x.VersionUUID, version.UUID, StringComparison.OrdinalIgnoreCase));
+
+            if (installation == null)
+            {
+                string baseName = $"Minecraft {version.Name} ({version.PackageType})";
+                string installationName = baseName;
+                int suffix = 2;
+
+                while (profile.Installations.Any(x =>
+                    string.Equals(x.DisplayName, installationName, StringComparison.OrdinalIgnoreCase) ||
+                    string.Equals(x.DirectoryName, installationName, StringComparison.OrdinalIgnoreCase)))
+                {
+                    installationName = $"{baseName} ({suffix++})";
+                }
+
+                config.Installation_Create(
+                    installationName,
+                    version,
+                    installationName);
+
+                installation = profile.Installations.FirstOrDefault(x =>
+                    x.VersioningMode == BedrockLauncher.Enums.VersioningMode.None &&
+                    string.Equals(x.VersionUUID, version.UUID, StringComparison.OrdinalIgnoreCase) &&
+                    string.Equals(x.DisplayName, installationName, StringComparison.OrdinalIgnoreCase));
+            }
+
+            if (installation == null)
+                return;
+
+            config.CurrentInstallationUUID = installation.InstallationUUID;
+
+            if (Application.Current.MainWindow is MainWindow mainWindow)
+                mainWindow.NavigateToPlayScreen();
+        }
+
         private async void AddButton_Click(object sender, RoutedEventArgs e)
         {
             OpenFileDialog ofd = new OpenFileDialog()

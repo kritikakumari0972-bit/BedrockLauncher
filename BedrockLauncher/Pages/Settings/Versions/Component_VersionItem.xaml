@@ -39,6 +39,9 @@
                            ToolTip="{Binding LibraryStatusReason}"/>
                 <TextBlock FontSize="10"
                            Foreground="{DynamicResource TertiaryText.Foreground}"
+                           Text="{Binding LibrarySourceText}"/>
+                <TextBlock FontSize="10"
+                           Foreground="{DynamicResource TertiaryText.Foreground}"
                            Text="{Binding InstallationSize}"/>
                 <TextBlock FontSize="9"
                            Foreground="{DynamicResource TertiaryText.Foreground}"

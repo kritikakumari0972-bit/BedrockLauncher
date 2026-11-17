@@ -159,6 +159,24 @@ namespace BedrockLauncher.Classes
         public string LibraryStatusReason =>
             CatalogValidation?.Reason ?? string.Empty;
 
+        public string LibrarySourceText
+        {
+            get
+            {
+                if (IsCustom)
+                    return "Source: local import";
+
+                return CatalogValidation?.Source switch
+                {
+                    VersionCatalogSource.CommunityCatalogue => "Source: community catalogue",
+                    VersionCatalogSource.MicrosoftStore => "Source: Microsoft Store catalogue",
+                    VersionCatalogSource.GdkLinksManifest => "Source: GDK links manifest",
+                    VersionCatalogSource.PersistedGdkCatalogue => "Source: saved GDK catalogue",
+                    _ => "Source: unknown"
+                };
+            }
+        }
+
         public bool IsBeta
         {
             get => Type == VersionType.Beta;

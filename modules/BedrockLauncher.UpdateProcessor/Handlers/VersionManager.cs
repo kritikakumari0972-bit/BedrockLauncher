@@ -47,6 +47,7 @@ namespace BedrockLauncher.UpdateProcessor.Handlers
         public VersionManager()
         {
             Singleton = this;
+            ResumableDownloader = new ResumableHttpDownloader(HttpClient);
         }
 
         #endregion
@@ -81,6 +82,8 @@ namespace BedrockLauncher.UpdateProcessor.Handlers
 
         private readonly HttpClient HttpClient =
             new HttpClient();
+
+        private readonly ResumableHttpDownloader ResumableDownloader;
 
         private readonly StoreNetwork StoreNetwork =
             new StoreNetwork();

@@ -258,131 +258,13 @@ namespace BedrockLauncher.UpdateProcessor.Handlers
             DownloadProgress progress,
             CancellationToken cancellationToken)
         {
-            string temporaryPath =
-                destination + ".download";
-
-            if (File.Exists(temporaryPath))
-                File.Delete(temporaryPath);
-
-            try
-            {
-                using var resp =
-                    await HttpClient.GetAsync(
-                        url,
-                        HttpCompletionOption.ResponseHeadersRead,
-                        cancellationToken);
-
-                resp.EnsureSuccessStatusCode();
-
-                long totalSize =
-                    resp.Content.Headers.ContentLength ?? -1;
-
-                long transferred = 0;
-
-                byte[] buffer =
-                    new byte[1024 * 1024];
-
-                progress?.Invoke(
-                    0,
-                    totalSize > 0
-                        ? totalSize
-                        : 1);
-
-                using (
-                    var input =
-                        await resp.Content.ReadAsStreamAsync())
-                using (
-                    var output =
-                        new FileStream(
-                            temporaryPath,
-                            FileMode.Create,
-                            FileAccess.Write,
-                            FileShare.None,
-                            65536,
-                            useAsync: true))
-                {
-                    while (true)
-                    {
-                        int read =
-                            await input.ReadAsync(
-                                buffer,
-                                0,
-                                buffer.Length,
-                                cancellationToken);
-
-                        if (read == 0)
-                            break;
-
-                        await output.WriteAsync(
-                            buffer,
-                            0,
-                            read,
-                            cancellationToken);
-
-                        transferred += read;
-
-                        /*
-                         * IMPORTANT:
-                         *
-                         * Do not create a new Task.Run here.
-                         *
-                         * The old implementation scheduled progress updates
-                         * asynchronously and cancelled the previous update
-                         * whenever another chunk arrived. With large GDK
-                         * packages this caused most updates to disappear.
-                         *
-                         * Report directly to PackageHandler instead.
-                         */
-                        progress?.Invoke(
-                            transferred,
-                            totalSize > 0
-                                ? totalSize
-                                : transferred);
-                    }
-                }
-
-                if (!File.Exists(temporaryPath))
-                {
-                    throw new IOException(
-                        "The downloaded package does not exist.");
-                }
-
-                long downloadedSize =
-                    new FileInfo(temporaryPath).Length;
-
-                if (downloadedSize == 0)
-                {
-                    throw new IOException(
-                        "The downloaded package is empty.");
-                }
-
-                // A connection that ends early leaves a truncated package, which Windows rejects on install.
-                if (totalSize > 0 && downloadedSize != totalSize)
-                {
-                    throw new IOException(
-                        $"The download is incomplete: {downloadedSize} of {totalSize} bytes.");
-                }
-
-                if (File.Exists(destination))
-                    File.Delete(destination);
-
-                File.Move(
-                    temporaryPath,
-                    destination);
-
-                progress?.Invoke(
-                    transferred,
-                    totalSize > 0
-                        ? totalSize
-                        : transferred);
-            }
-            catch
-            {
-                if (File.Exists(temporaryPath))
-                    File.Delete(temporaryPath);
-
-                throw;
-            }
+            await ResumableDownloader.DownloadAsync(
+                url,
+                destination,
+                progress == null
+                    ? (Action<long, long>)null
+                    : (current, total) => progress(current, total),
+                cancellationToken);
         }
 
         #endregion

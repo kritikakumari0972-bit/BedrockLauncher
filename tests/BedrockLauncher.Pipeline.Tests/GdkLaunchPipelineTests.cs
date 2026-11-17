@@ -30,6 +30,45 @@ namespace BedrockLauncher.Pipeline.Tests
         }
 
         [Fact]
+        public async Task InstallAsyncPreparesSaveDataAfterValidationWithoutActivatingGame()
+        {
+            var required = Identities.Release("1.26.4005.0");
+            var platform = new FakeGdkPlatform();
+            var request = Identities.GdkRequest(required);
+            request.InstallationDataPath = @"C:\Launcher\installations\profile\install\packageData";
+            var log = new List<string>();
+
+            InstalledPackageInfo installed = await Pipeline(platform, log).InstallAsync(request);
+
+            Assert.Equal(required.FullName, installed.FullName);
+            int validated = log.IndexOf("GDK validation: OK");
+            int saveData = log.IndexOf("Save data: OK");
+            Assert.True(validated >= 0);
+            Assert.True(saveData > validated);
+            Assert.Contains(platform.Calls, call => call == "SaveData:" + request.InstallationDataPath);
+            Assert.DoesNotContain(platform.Calls, call => call.StartsWith("Activate:"));
+        }
+
+        [Fact]
+        public async Task InstallAsyncPropagatesSaveDataFailureAndNeverActivatesGame()
+        {
+            var required = Identities.Release("1.26.4005.0");
+            var platform = new FakeGdkPlatform
+            {
+                SaveDataFailure = new InvalidOperationException("save path unavailable")
+            };
+            platform.Installed.Add(FakeGdkPlatform.Package(required));
+            var request = Identities.GdkRequest(required);
+            request.InstallationDataPath = @"C:\Launcher\installations\profile\install\packageData";
+
+            await Assert.ThrowsAsync<InvalidOperationException>(
+                () => Pipeline(platform).InstallAsync(request));
+
+            Assert.Contains(platform.Calls, call => call == "SaveData:" + request.InstallationDataPath);
+            Assert.DoesNotContain(platform.Calls, call => call.StartsWith("Activate:"));
+        }
+
+        [Fact]
         public async Task EnsureReadyReusesExactPackageWithoutInstallingOrLaunching()
         {
             var required = Identities.Release("1.26.4005.0");

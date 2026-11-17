@@ -1,0 +1,65 @@
+name: Bedrock Version Manager CI
+
+on:
+  push:
+    branches:
+      - feature/full-bedrock-version-manager
+  pull_request:
+    branches:
+      - feature/full-bedrock-version-manager
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: bedrock-version-manager-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  windows-build-and-tests:
+    runs-on: windows-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Prepare repository build targets
+        shell: pwsh
+        run: |
+          $source = Join-Path $env:GITHUB_WORKSPACE "BedrockLauncher/GitHub.Directory.Build.targets"
+          $target = Join-Path $env:GITHUB_WORKSPACE "BedrockLauncher/Directory.Build.targets"
+          if (-not (Test-Path $source)) {
+            throw "Expected GitHub.Directory.Build.targets was not found."
+          }
+          Copy-Item $source $target -Force
+
+      - name: Install .NET SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+
+      - name: Configure MSBuild
+        uses: microsoft/setup-msbuild@v2
+
+      - name: Restore solution
+        run: dotnet restore BedrockLauncher.sln
+
+      - name: Build Windows launcher
+        shell: pwsh
+        run: |
+          msbuild BedrockLauncher.sln /t:Build /p:Configuration=Debug /p:Restore=false /verbosity:minimal
+
+      - name: Run pipeline regression tests
+        run: dotnet test tests/BedrockLauncher.Pipeline.Tests/BedrockLauncher.Pipeline.Tests.csproj --configuration Debug --no-restore --logger "trx;LogFileName=bedrock-pipeline-tests.trx"
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: bedrock-version-manager-test-results
+          path: tests/BedrockLauncher.Pipeline.Tests/TestResults/*.trx
+          if-no-files-found: warn

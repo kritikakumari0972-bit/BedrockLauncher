@@ -154,13 +154,69 @@ namespace BedrockLauncher.Pages.Settings.Versions
         /// </summary>
         public void AddVersionToPlay(BedrockLauncher.Classes.MCVersion version)
         {
-            if (version == null || !version.CanAddToPlay)
+            BedrockLauncher.Classes.BLInstallation installation =
+                GetOrCreateInstallationForVersion(version);
+
+            if (installation == null)
+                return;
+
+            if (Application.Current.MainWindow is MainWindow mainWindow)
+                mainWindow.NavigateToPlayScreen();
+        }
+
+        /// <summary>
+        /// Installs the exact selected version for the active profile without launching Minecraft.
+        /// UWP and GDK use their existing package handlers and the profile's own save-data directory.
+        /// </summary>
+        public async Task InstallVersion(BedrockLauncher.Classes.MCVersion version)
+        {
+            BedrockLauncher.Classes.BLInstallation installation =
+                GetOrCreateInstallationForVersion(version);
+
+            if (installation == null)
                 return;
 
             var config = MainDataModel.Default.Config;
             var profile = config.CurrentProfile;
-            if (profile?.Installations == null)
+            string installationDataPath =
+                MainDataModel.Default.FilePaths.GetInstallationPackageDataPath(
+                    profile.UUID,
+                    installation.DirectoryName_Full);
+
+            bool installed;
+            if (version.PackageType == BedrockLauncher.UpdateProcessor.Enums.PackageType.GDK)
+            {
+                installed = await MainDataModel.Default.PackageManager.InstallGdkPackage(
+                    version,
+                    installationDataPath);
+            }
+            else
+            {
+                installed = await MainDataModel.Default.PackageManager.InstallPackage(
+                    version,
+                    installationDataPath);
+            }
+
+            if (!installed)
                 return;
+
+            version.UpdateFolderSize();
+            RefreshVersionRows();
+
+            if (Application.Current.MainWindow is MainWindow mainWindow)
+                mainWindow.NavigateToPlayScreen();
+        }
+
+        private BedrockLauncher.Classes.BLInstallation GetOrCreateInstallationForVersion(
+            BedrockLauncher.Classes.MCVersion version)
+        {
+            if (version == null || !version.CanAddToPlay)
+                return null;
+
+            var config = MainDataModel.Default.Config;
+            var profile = config.CurrentProfile;
+            if (profile?.Installations == null)
+                return null;
 
             BedrockLauncher.Classes.BLInstallation installation =
                 profile.Installations.FirstOrDefault(x =>
@@ -191,13 +247,10 @@ namespace BedrockLauncher.Pages.Settings.Versions
                     string.Equals(x.DisplayName, installationName, StringComparison.OrdinalIgnoreCase));
             }
 
-            if (installation == null)
-                return;
+            if (installation != null)
+                config.CurrentInstallationUUID = installation.InstallationUUID;
 
-            config.CurrentInstallationUUID = installation.InstallationUUID;
-
-            if (Application.Current.MainWindow is MainWindow mainWindow)
-                mainWindow.NavigateToPlayScreen();
+            return installation;
         }
 
         private async void AddButton_Click(object sender, RoutedEventArgs e)

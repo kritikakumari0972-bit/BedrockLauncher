@@ -160,7 +160,7 @@ namespace BedrockLauncher.Pages.Settings.Versions
             if (installation == null)
                 return;
 
-            if (Application.Current.MainWindow is MainWindow mainWindow)
+            if (System.Windows.Application.Current.MainWindow is MainWindow mainWindow)
                 mainWindow.NavigateToPlayScreen();
         }
 
@@ -203,7 +203,7 @@ namespace BedrockLauncher.Pages.Settings.Versions
             version.UpdateFolderSize();
             RefreshVersionRows();
 
-            if (Application.Current.MainWindow is MainWindow mainWindow)
+            if (System.Windows.Application.Current.MainWindow is MainWindow mainWindow)
                 mainWindow.NavigateToPlayScreen();
         }
 

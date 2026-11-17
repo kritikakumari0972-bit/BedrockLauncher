@@ -17,6 +17,7 @@ namespace BedrockLauncher.Pipeline.Tests
         public bool ConfirmReplace { get; set; }
         public bool ActivationSucceeds { get; set; } = true;
         public Exception BootstrapFailure { get; set; }
+        public Exception SaveDataFailure { get; set; }
 
         /// <summary>What Windows ends up registering when asked to install a package (default: exactly the request).</summary>
         public Func<GdkPackageIdentity, GdkPackageIdentity> InstallResult { get; set; } = identity => identity;
@@ -77,6 +78,8 @@ namespace BedrockLauncher.Pipeline.Tests
         public void PrepareSaveData(GdkLaunchRequest request)
         {
             Calls.Add("SaveData:" + request.InstallationDataPath);
+            if (SaveDataFailure != null)
+                throw SaveDataFailure;
         }
 
         public Task<bool> ActivateAsync(GdkLaunchRequest request, InstalledPackageInfo package)

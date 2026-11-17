@@ -102,6 +102,7 @@ namespace BedrockLauncher.Handlers
                     progress?.Invoke(copiedBytes, totalBytes);
                 }
 
+                VerifySourceUnchanged(source, directories, files);
                 VerifyStagedFiles(staging, files);
 
                 // Staging is a sibling of destination, so this promotion is a same-volume directory rename.
@@ -172,6 +173,42 @@ namespace BedrockLauncher.Handlers
             }
 
             return files;
+        }
+
+        private static void VerifySourceUnchanged(
+            string source,
+            List<string> expectedDirectories,
+            List<SourceFile> expectedFiles)
+        {
+            var actualDirectories = new List<string>();
+            List<SourceFile> actualFiles = CaptureSourceTree(source, actualDirectories);
+
+            var expectedDirectorySet = new HashSet<string>(
+                expectedDirectories, StringComparer.OrdinalIgnoreCase);
+            var actualDirectorySet = new HashSet<string>(
+                actualDirectories, StringComparer.OrdinalIgnoreCase);
+
+            if (!expectedDirectorySet.SetEquals(actualDirectorySet))
+                throw new IOException("The source save-data folder structure changed during recovery.");
+
+            var expected = expectedFiles.ToDictionary(
+                file => file.RelativePath, file => file, StringComparer.OrdinalIgnoreCase);
+            var actual = actualFiles.ToDictionary(
+                file => file.RelativePath, file => file, StringComparer.OrdinalIgnoreCase);
+
+            if (expected.Count != actual.Count)
+                throw new IOException("The source save-data file list changed during recovery.");
+
+            foreach (KeyValuePair<string, SourceFile> pair in expected)
+            {
+                if (!actual.TryGetValue(pair.Key, out SourceFile current) ||
+                    current.Length != pair.Value.Length ||
+                    current.LastWriteTimeUtc != pair.Value.LastWriteTimeUtc)
+                {
+                    throw new IOException(
+                        "A save-data file changed while recovery was copying it: " + pair.Key);
+                }
+            }
         }
 
         private static void VerifyStagedFiles(string staging, List<SourceFile> expectedFiles)

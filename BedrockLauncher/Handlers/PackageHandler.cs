@@ -535,6 +535,13 @@ namespace BedrockLauncher.Handlers
             if (v == null)
                 throw new ArgumentNullException(nameof(v));
 
+            if (v.IsCustom || v.CatalogValidation == null || !v.CatalogValidation.CanAttemptDownload)
+            {
+                throw new InvalidOperationException(
+                    $"Minecraft {v.Name} is not marked as downloadable by the version catalogue: " +
+                    (v.CatalogValidation?.Reason ?? "No catalogue validation is available."));
+            }
+
             return v.PackageType switch
             {
                 PackageType.UWP => DownloadPackage(v),

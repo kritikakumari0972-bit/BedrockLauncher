@@ -71,6 +71,36 @@ namespace BedrockLauncher.Pages.Settings.Versions
             button.ContextMenu.IsOpen = true;
         }
 
+        private async void Cache_Click(object sender, RoutedEventArgs e)
+        {
+            Button button = sender as Button;
+            MCVersion version = button?.DataContext as MCVersion;
+
+            if (version == null || !version.CanCacheVersion)
+                return;
+
+            button.IsEnabled = false;
+
+            try
+            {
+                await MainDataModel.Default.PackageManager.CacheVersion(version);
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Trace.WriteLine(
+                    $"Could not cache Minecraft {version.Name}: {ex}");
+            }
+            finally
+            {
+                version.UpdateFolderSize();
+                GetParent()?.RefreshVersionRows();
+
+                if (button != null && button.IsLoaded)
+                    button.IsEnabled = version.CanCacheVersion &&
+                        MainDataModel.Default.ProgressBarState.AllowEditing;
+            }
+        }
+
         private void Repair_Click(object sender, RoutedEventArgs e)
         {
             Button button = sender as Button;

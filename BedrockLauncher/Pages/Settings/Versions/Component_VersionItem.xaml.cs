@@ -1,4 +1,5 @@
-﻿using BedrockLauncher.Classes;
+﻿using System;
+using BedrockLauncher.Classes;
 using BedrockLauncher.UI.Pages.Common;
 using BedrockLauncher.ViewModels;
 using System.Threading.Tasks;

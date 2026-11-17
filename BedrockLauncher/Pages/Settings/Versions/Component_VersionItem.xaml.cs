@@ -82,6 +82,38 @@ namespace BedrockLauncher.Pages.Settings.Versions
             GetParent()?.AddVersionToPlay(version);
         }
 
+        private async void InstallVersion_Click(object sender, RoutedEventArgs e)
+        {
+            Button button = sender as Button;
+            MCVersion version = button?.DataContext as MCVersion;
+
+            if (version == null || !version.CanAddToPlay)
+                return;
+
+            button.IsEnabled = false;
+
+            try
+            {
+                VersionsPage parent = GetParent();
+                if (parent != null)
+                    await parent.InstallVersion(version);
+            }
+            catch (System.Exception ex)
+            {
+                System.Diagnostics.Trace.WriteLine(
+                    $"Could not install Minecraft {version.Name}: {ex}");
+            }
+            finally
+            {
+                version.UpdateFolderSize();
+                GetParent()?.RefreshVersionRows();
+
+                if (button != null && button.IsLoaded)
+                    button.IsEnabled = version.CanAddToPlay &&
+                        MainDataModel.Default.ProgressBarState.AllowEditing;
+            }
+        }
+
         private async void Cache_Click(object sender, RoutedEventArgs e)
         {
             Button button = sender as Button;

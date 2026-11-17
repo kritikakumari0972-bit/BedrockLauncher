@@ -41,7 +41,7 @@ namespace BedrockLauncher.Pipeline.Tests
 
                 string partialPath = destination + ".download";
                 Assert.True(File.Exists(partialPath));
-                Assert.Equal(7, new FileInfo(partialPath).Length);
+                Assert.Equal(7L, new FileInfo(partialPath).Length);
                 Assert.False(File.Exists(destination));
 
                 bool rangeRequested = false;
@@ -117,6 +117,53 @@ namespace BedrockLauncher.Pipeline.Tests
 
                 Assert.True(rangeRequested);
                 Assert.Equal(newPackage, await File.ReadAllBytesAsync(destination));
+            }
+            finally
+            {
+                Directory.Delete(root, true);
+            }
+        }
+
+        [Fact]
+        public async Task PartialWithoutStableValidatorIsDiscardedBeforeRetry()
+        {
+            string root = CreateTempDirectory();
+            string destination = Path.Combine(root, "package.msixvc");
+            const string url = "https://downloads.example.invalid/package.msixvc";
+            byte[] package = Enumerable.Range(30, 18).Select(x => (byte)x).ToArray();
+
+            try
+            {
+                using (var firstClient = new HttpClient(new DelegateHandler(_ => {
+                    var response = new HttpResponseMessage(HttpStatusCode.OK)
+                    {
+                        Content = new StreamContent(new FailsAfterBytesStream(package, 4))
+                    };
+                    response.Content.Headers.ContentLength = package.Length;
+                    // Deliberately no ETag or Last-Modified: the partial bytes cannot be safely resumed.
+                    return response;
+                })))
+                {
+                    var downloader = new ResumableHttpDownloader(firstClient);
+                    await Assert.ThrowsAsync<IOException>(() =>
+                        downloader.DownloadAsync(url, destination, null, CancellationToken.None));
+                }
+
+                bool rangeRequested = false;
+                using (var secondClient = new HttpClient(new DelegateHandler(request => {
+                    rangeRequested = request.Headers.Range != null;
+                    return new HttpResponseMessage(HttpStatusCode.OK)
+                    {
+                        Content = new ByteArrayContent(package)
+                    };
+                })))
+                {
+                    var downloader = new ResumableHttpDownloader(secondClient);
+                    await downloader.DownloadAsync(url, destination, null, CancellationToken.None);
+                }
+
+                Assert.False(rangeRequested);
+                Assert.Equal(package, await File.ReadAllBytesAsync(destination));
             }
             finally
             {

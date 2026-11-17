@@ -55,6 +55,26 @@ Verification note: tests have been added, but a successful Windows build/test ru
 - Keep cached catalogue data when refresh fails.
 - Add tests for duplicate versions, UWP/GDK coexistence, missing package identities, and unsupported architectures.
 
+### Phase 2 implementation notes
+
+The first version-library slice is committed on the feature branch.
+
+Implemented:
+- The Versions page now lists catalogued versions, rather than filtering the list to only versions with local playable files. Imported local versions remain visible; synthetic latest-channel shortcut rows are not shown in the library.
+- Search matches the version/display name, architecture, package type, and catalogue/update identifier.
+- Existing Release/Beta/Preview and UWP/GDK filters are retained. Added Cached only and Show unavailable filters.
+- The current PC architecture is passed to catalogue validation. Other architectures are marked unsupported for this PC and can be revealed with Show unavailable.
+- Each row displays availability/cache status and catalogue source. Unavailable entries are not offered a Cache action.
+- Cache uses the existing real package flows: UWP downloads and extracts through the Store pipeline; GDK downloads the exact catalogued MSIXVC identity into its per-version cache without registering or launching it.
+- Cache state is refreshed in the UI after the operation. Repair remains available for cached/ready versions.
+- The downloader now tolerates a missing current-architecture Release or Preview row instead of throwing while constructing the latest-channel shortcuts.
+
+Important limits:
+- A UWP row marked Catalogued still has its Microsoft Store download link resolved at download time; catalogue presence is not proof that the Store will provide the package.
+- A GDK row with a listed resource is not proof that the CDN is reachable. The package is checked locally for an obvious text/error response and Windows performs package validation during registration.
+- Phase 2 does not yet implement download resumption, a full package signature/hash manifest, or a dedicated version-details screen.
+- A successful Windows CI build/test run has not yet been observed for the current branch.
+
 ### M2 — Version library and downloads
 - Present all known versions with search and filters.
 - Show cached/downloadable/unavailable states.

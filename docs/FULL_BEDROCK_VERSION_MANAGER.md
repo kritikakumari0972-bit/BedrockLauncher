@@ -72,8 +72,17 @@ Implemented:
 Important limits:
 - A UWP row marked Catalogued still has its Microsoft Store download link resolved at download time; catalogue presence is not proof that the Store will provide the package.
 - A GDK row with a listed resource is not proof that the CDN is reachable. The package is checked locally for an obvious text/error response and Windows performs package validation during registration.
-- Phase 2 does not yet implement download resumption, a full package signature/hash manifest, or a dedicated version-details screen.
+- Phase 2 now includes resumable direct HTTP downloads where the server provides a stable validator. A trusted package signature/hash manifest and a dedicated version-details screen are still outstanding.
 - A successful Windows CI build/test run has not yet been observed for the current branch.
+
+
+#### Resumable direct-download slice
+
+- The shared direct HTTP downloader used by both UWP Store-resolved packages and GDK package URLs now retains interrupted bytes in a temporary `.download` file.
+- It resumes only when the URL fingerprint matches and a strong ETag or Last-Modified validator is available; the original URL (which may contain a temporary token) is not written to the sidecar.
+- Resume requests use `Range` and `If-Range`. A valid `206` must begin at the exact saved offset. If the server returns a full `200`, an invalid range, a changed validator, or `416`, the downloader safely restarts instead of appending mismatched bytes.
+- The final cache destination is replaced only after the known response length matches. This is transfer-completeness validation, not a cryptographic authenticity check; a trusted SHA-256/signature catalogue remains future work.
+- Regression tests cover interrupted continuation, a server returning a full response to a range request, and safe restart when the server provides no stable validator.
 
 ### M2 — Version library and downloads
 - Present all known versions with search and filters.

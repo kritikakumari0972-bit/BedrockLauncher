@@ -383,14 +383,17 @@ namespace BedrockLauncher.Handlers
 
             RestoreLaunchHelpers(familyName);
 
-            SaveDataGuard guard = ProtectSaveData(type);
+            SaveDataGuard guard = null;
             try
             {
+                guard = ProtectSaveData(type);
                 await RemoveWindowsPackage(packageFullName);
             }
             finally
             {
-                RestoreSaveData(guard);
+                if (guard != null)
+                    RestoreSaveData(guard);
+
                 ResetTask();
             }
 

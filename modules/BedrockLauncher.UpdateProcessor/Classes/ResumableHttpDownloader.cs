@@ -328,7 +328,26 @@ namespace BedrockLauncher.UpdateProcessor.Classes
 
             try
             {
-                return JsonSerializer.Deserialize<ResumeMetadata>(File.ReadAllText(metadataPath));
+                using (JsonDocument document = JsonDocument.Parse(File.ReadAllText(metadataPath)))
+                {
+                    JsonElement root = document.RootElement;
+                    if (root.ValueKind != JsonValueKind.Object)
+                        return null;
+
+                    long expectedLength =
+                        root.TryGetProperty("ExpectedLength", out JsonElement lengthElement) &&
+                        lengthElement.TryGetInt64(out long parsedLength)
+                            ? parsedLength
+                            : -1;
+
+                    return new ResumeMetadata
+                    {
+                        UrlFingerprint = ReadJsonString(root, "UrlFingerprint"),
+                        ETag = ReadJsonString(root, "ETag"),
+                        LastModifiedUtc = ReadJsonString(root, "LastModifiedUtc"),
+                        ExpectedLength = expectedLength
+                    };
+                }
             }
             catch (Exception ex) when (
                 ex is IOException ||
@@ -337,6 +356,14 @@ namespace BedrockLauncher.UpdateProcessor.Classes
             {
                 return null;
             }
+        }
+
+        private static string ReadJsonString(JsonElement root, string propertyName)
+        {
+            return root.TryGetProperty(propertyName, out JsonElement value) &&
+                   value.ValueKind == JsonValueKind.String
+                ? value.GetString()
+                : null;
         }
 
         private static Task WriteMetadataAsync(string metadataPath, ResumeMetadata metadata)

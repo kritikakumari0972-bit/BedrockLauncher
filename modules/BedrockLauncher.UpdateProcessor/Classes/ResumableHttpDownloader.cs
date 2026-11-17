@@ -369,7 +369,15 @@ namespace BedrockLauncher.UpdateProcessor.Classes
         private static Task WriteMetadataAsync(string metadataPath, ResumeMetadata metadata)
         {
             string temporaryMetadataPath = metadataPath + ".tmp";
-            File.WriteAllText(temporaryMetadataPath, JsonSerializer.Serialize(metadata));
+            string json = JsonSerializer.Serialize(new
+            {
+                UrlFingerprint = metadata.UrlFingerprint,
+                ETag = metadata.ETag,
+                LastModifiedUtc = metadata.LastModifiedUtc,
+                ExpectedLength = metadata.ExpectedLength
+            });
+
+            File.WriteAllText(temporaryMetadataPath, json);
             File.Move(temporaryMetadataPath, metadataPath, true);
             return Task.CompletedTask;
         }

@@ -89,6 +89,12 @@ namespace BedrockLauncher.Pages.Play
             Task.Run(() => Navigator.Navigate(MainPageFrame, playScreenPage));
 
         }
+
+        /// <summary>External entry point used after a version is added to the active Play profile.</summary>
+        public void NavigateToPlayScreenFromExternal()
+        {
+            ButtonManager_Base(PlayButton.Name);
+        }
         public void NavigateToInstallationsPage()
         {
             Navigator.UpdatePageIndex(1);

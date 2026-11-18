@@ -110,16 +110,20 @@ namespace BedrockLauncher.Handlers
                 VerifySourceUnchanged(source, directories, files);
                 VerifyStagedFiles(staging, files);
 
-                // Staging is a sibling of destination, so this promotion is a same-volume directory rename.
-                Directory.Move(staging, destination);
-
-                return new SaveDataRecoveryCopyResult
+                // Finish all hashing and result construction before promotion. After Directory.Move succeeds,
+                // returning the prepared result must not require more I/O that could leave an orphan installation.
+                string manifestSha256 = ComputeManifestSha256(files);
+                var result = new SaveDataRecoveryCopyResult
                 {
                     FileCount = files.Count,
                     DirectoryCount = directories.Count,
                     BytesCopied = copiedBytes,
-                    ManifestSha256 = ComputeManifestSha256(files)
+                    ManifestSha256 = manifestSha256
                 };
+
+                // Staging is a sibling of destination, so this promotion is a same-volume directory rename.
+                Directory.Move(staging, destination);
+                return result;
             }
             catch
             {

@@ -27,12 +27,84 @@ namespace BedrockLauncher.Pipeline.Tests
                 Assert.Equal(2, result.FileCount);
                 Assert.True(result.DirectoryCount >= 2);
                 Assert.Equal(20, result.BytesCopied);
+                Assert.Matches("^[A-F0-9]{64}$", result.ManifestSha256);
                 Assert.Equal("world-meta", File.ReadAllText(Path.Combine(destination, "level.dat")));
                 Assert.Equal("Test world",
                     File.ReadAllText(Path.Combine(destination, "minecraftWorlds", "world-one", "levelname.txt")));
                 Assert.True(Directory.Exists(Path.Combine(destination, "resource_packs", "empty")));
                 Assert.True(Directory.Exists(source));
                 Assert.Equal("world-meta", File.ReadAllText(Path.Combine(source, "level.dat")));
+            }
+            finally
+            {
+                DeleteRoot(root);
+            }
+        }
+
+        [Fact]
+        public void ManifestHashIsStableForTheSameRelativeFilesAndContents()
+        {
+            string root = CreateRoot();
+            try
+            {
+                string source = Path.Combine(root, "source");
+                string firstDestination = Path.Combine(root, "install-one", "packageData");
+                string secondDestination = Path.Combine(root, "install-two", "packageData");
+                Directory.CreateDirectory(Path.Combine(source, "minecraftWorlds", "world-one"));
+                File.WriteAllText(Path.Combine(source, "level.dat"), "world-meta");
+                File.WriteAllText(
+                    Path.Combine(source, "minecraftWorlds", "world-one", "levelname.txt"),
+                    "Test world");
+
+                SaveDataRecoveryCopyResult first = SaveDataRecoveryCopier.CopyDirectoryTransactional(
+                    source, firstDestination);
+                SaveDataRecoveryCopyResult second = SaveDataRecoveryCopier.CopyDirectoryTransactional(
+                    source, secondDestination);
+
+                Assert.Equal(first.ManifestSha256, second.ManifestSha256);
+                Assert.Matches("^[A-F0-9]{64}$", first.ManifestSha256);
+            }
+            finally
+            {
+                DeleteRoot(root);
+            }
+        }
+
+        [Fact]
+        public void StagedFileTamperingIsDetectedBeforeDestinationPromotion()
+        {
+            string root = CreateRoot();
+            try
+            {
+                string source = Path.Combine(root, "source");
+                string destination = Path.Combine(root, "install", "packageData");
+                Directory.CreateDirectory(source);
+                File.WriteAllText(Path.Combine(source, "level.dat"), "world-meta");
+                bool tampered = false;
+
+                Assert.Throws<IOException>(() =>
+                    SaveDataRecoveryCopier.CopyDirectoryTransactional(
+                        source,
+                        destination,
+                        (copied, total) =>
+                        {
+                            if (tampered)
+                                return;
+
+                            string staging = Directory.GetDirectories(
+                                Path.GetDirectoryName(destination),
+                                Path.GetFileName(destination) + ".recovery-staging-*")[0];
+                            string stagedFile = Path.Combine(staging, "level.dat");
+                            File.WriteAllText(stagedFile, "tampered!!");
+                            tampered = true;
+                        }));
+
+                Assert.True(tampered);
+                Assert.False(Directory.Exists(destination));
+                Assert.Equal("world-meta", File.ReadAllText(Path.Combine(source, "level.dat")));
+                Assert.Empty(Directory.GetDirectories(
+                    Path.GetDirectoryName(destination),
+                    Path.GetFileName(destination) + ".recovery-staging-*"));
             }
             finally
             {

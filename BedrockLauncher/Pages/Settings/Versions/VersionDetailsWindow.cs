@@ -157,7 +157,6 @@ namespace BedrockLauncher.Pages.Settings.Versions
                     FontSize = 13,
                     Foreground = Brushes.White,
                     TextWrapping = TextWrapping.Wrap,
-                    IsTextSelectionEnabled = true
                 });
                 section.Children.Add(item);
             }

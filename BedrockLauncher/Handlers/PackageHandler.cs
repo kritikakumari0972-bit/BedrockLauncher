@@ -202,14 +202,13 @@ namespace BedrockLauncher.Handlers
                 PackageVersion version = package.Id.Version;
                 string installedVersion = $"{version.Major}.{version.Minor}.{version.Build}.{version.Revision}";
 
-                return PackageRegistrationMatcher.MatchesRegistration(
-                        family,
-                        package.Id.FamilyName,
-                        sameInstallDirectory: PathsEqual(location, v.GameDirectory),
-                        signedPackageRegistration: false,
-                        expectedVersion: manifestVersion,
-                        installedVersion: installedVersion) &&
-                    PackageRegistrationMatcher.SameVersion(manifestVersion, installedVersion);
+                return UwpPackageRegistrationValidator.MatchesExactRegistration(
+                    family,
+                    package.Id.FamilyName,
+                    v.GameDirectory,
+                    location,
+                    manifestVersion,
+                    installedVersion);
             });
 
             if (match == null)

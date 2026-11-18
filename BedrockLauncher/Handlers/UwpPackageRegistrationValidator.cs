@@ -14,11 +14,20 @@ namespace BedrockLauncher.Handlers
             string installedFamily,
             string expectedInstallDirectory,
             string installedInstallDirectory,
+            string expectedPackageArchitecture,
+            string installedPackageArchitecture,
             string expectedPackageVersion,
             string installedPackageVersion)
         {
             if (!PackageRegistrationMatcher.SameFamily(expectedFamily, installedFamily))
                 return false;
+
+            if (string.IsNullOrWhiteSpace(expectedPackageArchitecture) ||
+                string.IsNullOrWhiteSpace(installedPackageArchitecture) ||
+                !string.Equals(expectedPackageArchitecture, installedPackageArchitecture, StringComparison.OrdinalIgnoreCase))
+            {
+                return false;
+            }
 
             if (!PackageRegistrationMatcher.SameVersion(expectedPackageVersion, installedPackageVersion))
                 return false;

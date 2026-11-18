@@ -207,6 +207,8 @@ namespace BedrockLauncher.Handlers
                     package.Id.FamilyName,
                     v.GameDirectory,
                     location,
+                    v.Architecture,
+                    package.Id.Architecture.ToString(),
                     manifestVersion,
                     installedVersion);
             });

@@ -188,7 +188,7 @@ namespace BedrockLauncher.Pipeline.Tests
                         Content = new StreamContent(new CancelsAfterBytesStream(package, 6, cancellation))
                     };
                     response.Content.Headers.ContentLength = package.Length;
-                    response.Headers.ETag = new EntityTagHeaderValue("\\"cancel-v1\\"");
+                    response.Headers.ETag = new EntityTagHeaderValue("\"cancel-v1\"");
                     return response;
                 })))
                 {
@@ -205,7 +205,7 @@ namespace BedrockLauncher.Pipeline.Tests
                 bool resumedFromSix = false;
                 using (var client = new HttpClient(new DelegateHandler(request => {
                     resumedFromSix = request.Headers.Range?.Ranges.SingleOrDefault()?.From == 6;
-                    Assert.Equal("\\"cancel-v1\\"", request.Headers.IfRange?.EntityTag?.ToString());
+                    Assert.Equal("\"cancel-v1\"", request.Headers.IfRange?.EntityTag?.ToString());
 
                     var response = new HttpResponseMessage(HttpStatusCode.PartialContent)
                     {
@@ -213,7 +213,7 @@ namespace BedrockLauncher.Pipeline.Tests
                     };
                     response.Content.Headers.ContentRange =
                         new ContentRangeHeaderValue(6, package.Length - 1, package.Length);
-                    response.Headers.ETag = new EntityTagHeaderValue("\\"cancel-v1\\"");
+                    response.Headers.ETag = new EntityTagHeaderValue("\"cancel-v1\"");
                     return response;
                 })))
                 {

@@ -289,6 +289,11 @@ namespace BedrockLauncher.Handlers
                 await EnsureUwpFamilyAvailable(v);
                 await RegisterPackage(v);
 
+                // Do not report the install as successful until Windows exposes the exact selected
+                // loose package registration (family, manifest version, and launcher-owned location).
+                // This prevents a failed or redirected registration from being shown as ready to play.
+                ValidateUwpRegistration(v);
+
                 await RedirectSaveData(dirPath, v.Type);
                 return true;
             }

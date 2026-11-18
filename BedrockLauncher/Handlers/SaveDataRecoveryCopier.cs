@@ -2,6 +2,8 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Security.Cryptography;
+using System.Text;
 
 namespace BedrockLauncher.Handlers
 {
@@ -10,6 +12,7 @@ namespace BedrockLauncher.Handlers
         public int FileCount { get; internal set; }
         public int DirectoryCount { get; internal set; }
         public long BytesCopied { get; internal set; }
+        public string ManifestSha256 { get; internal set; }
     }
 
     /// <summary>
@@ -25,6 +28,7 @@ namespace BedrockLauncher.Handlers
             public string RelativePath { get; set; }
             public long Length { get; set; }
             public DateTime LastWriteTimeUtc { get; set; }
+            public string Sha256 { get; set; }
         }
 
         public static SaveDataRecoveryCopyResult CopyDirectoryTransactional(
@@ -82,20 +86,21 @@ namespace BedrockLauncher.Handlers
                     if (!string.IsNullOrEmpty(targetParent))
                         Directory.CreateDirectory(targetParent);
 
-                    // Do not overwrite anything already present in the unique staging directory.
-                    File.Copy(file.FullPath, target, overwrite: false);
+                    // Keep the source open without write/delete sharing while copying. Hash the exact bytes
+                    // read from the source, then independently hash the staged file before accepting it.
+                    file.Sha256 = CopyFileAndComputeSha256(file, target);
 
                     var sourceInfoAfterCopy = new FileInfo(file.FullPath);
                     sourceInfoAfterCopy.Refresh();
                     var targetInfo = new FileInfo(target);
 
                     if (!targetInfo.Exists || targetInfo.Length != file.Length ||
-                        !sourceInfoAfterCopy.Exists ||
                         sourceInfoAfterCopy.Length != file.Length ||
-                        sourceInfoAfterCopy.LastWriteTimeUtc != file.LastWriteTimeUtc)
+                        sourceInfoAfterCopy.LastWriteTimeUtc != file.LastWriteTimeUtc ||
+                        !string.Equals(file.Sha256, ComputeSha256(target), StringComparison.Ordinal))
                     {
                         throw new IOException(
-                            "A save-data file changed or was copied incompletely: " + file.RelativePath);
+                            "A save-data file changed or failed SHA-256 verification: " + file.RelativePath);
                     }
 
                     copiedBytes = checked(copiedBytes + targetInfo.Length);
@@ -112,7 +117,8 @@ namespace BedrockLauncher.Handlers
                 {
                     FileCount = files.Count,
                     DirectoryCount = directories.Count,
-                    BytesCopied = copiedBytes
+                    BytesCopied = copiedBytes,
+                    ManifestSha256 = ComputeManifestSha256(files)
                 };
             }
             catch
@@ -215,10 +221,10 @@ namespace BedrockLauncher.Handlers
         {
             var expected = expectedFiles.ToDictionary(
                 file => file.RelativePath,
-                file => file.Length,
+                file => file,
                 StringComparer.OrdinalIgnoreCase);
 
-            var actual = new Dictionary<string, long>(StringComparer.OrdinalIgnoreCase);
+            var actual = new Dictionary<string, FileInfo>(StringComparer.OrdinalIgnoreCase);
             var pending = new Stack<DirectoryInfo>();
             pending.Push(new DirectoryInfo(staging));
 
@@ -237,16 +243,80 @@ namespace BedrockLauncher.Handlers
                     else if (entry is FileInfo file)
                     {
                         string relativePath = Path.GetRelativePath(staging, file.FullName);
-                        actual.Add(relativePath, file.Length);
+                        actual.Add(relativePath, file);
                     }
                 }
             }
 
-            if (expected.Count != actual.Count ||
-                expected.Any(pair => !actual.TryGetValue(pair.Key, out long length) || length != pair.Value))
+            if (expected.Count != actual.Count)
+                throw new IOException("The staged save-data copy did not pass file-count verification.");
+
+            foreach (KeyValuePair<string, SourceFile> pair in expected)
             {
-                throw new IOException("The staged save-data copy did not pass file-count and length verification.");
+                if (!actual.TryGetValue(pair.Key, out FileInfo stagedFile) ||
+                    stagedFile.Length != pair.Value.Length ||
+                    !string.Equals(
+                        pair.Value.Sha256,
+                        ComputeSha256(stagedFile.FullName),
+                        StringComparison.Ordinal))
+                {
+                    throw new IOException(
+                        "The staged save-data file failed SHA-256 verification: " + pair.Key);
+                }
             }
+        }
+
+        private static string CopyFileAndComputeSha256(SourceFile file, string destination)
+        {
+            using var source = new FileStream(
+                file.FullPath, FileMode.Open, FileAccess.Read, FileShare.Read,
+                1024 * 1024, FileOptions.SequentialScan);
+            using var target = new FileStream(
+                destination, FileMode.CreateNew, FileAccess.Write, FileShare.None,
+                1024 * 1024, FileOptions.SequentialScan);
+            using var hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
+
+            if (source.Length != file.Length)
+                throw new IOException("A save-data file changed before it could be copied: " + file.RelativePath);
+
+            byte[] buffer = new byte[1024 * 1024];
+            int read;
+            long total = 0;
+            while ((read = source.Read(buffer, 0, buffer.Length)) > 0)
+            {
+                hash.AppendData(buffer, 0, read);
+                target.Write(buffer, 0, read);
+                total = checked(total + read);
+            }
+
+            target.Flush(flushToDisk: true);
+            if (total != file.Length)
+                throw new IOException("A save-data file was truncated while being copied: " + file.RelativePath);
+
+            return Convert.ToHexString(hash.GetHashAndReset());
+        }
+
+        private static string ComputeSha256(string path)
+        {
+            using var stream = new FileStream(
+                path, FileMode.Open, FileAccess.Read, FileShare.Read,
+                1024 * 1024, FileOptions.SequentialScan);
+            using SHA256 sha = SHA256.Create();
+            return Convert.ToHexString(sha.ComputeHash(stream));
+        }
+
+        private static string ComputeManifestSha256(List<SourceFile> files)
+        {
+            using var hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
+            foreach (SourceFile file in files.OrderBy(item => item.RelativePath, StringComparer.OrdinalIgnoreCase))
+            {
+                byte[] entry = Encoding.UTF8.GetBytes(
+                    file.RelativePath.Replace(Path.DirectorySeparatorChar, '/') + "\\0" +
+                    file.Sha256 + "\\n");
+                hash.AppendData(entry);
+            }
+
+            return Convert.ToHexString(hash.GetHashAndReset());
         }
 
         private static bool PathsOverlap(string first, string second)

@@ -287,16 +287,40 @@ namespace BedrockLauncher.Handlers
 
             AdoptCachedMsixvc(v, required, packagePath);
 
-            bool cachedUsable =
+            bool cachedPayloadPresent =
                 File.Exists(packagePath) &&
                 new FileInfo(packagePath).Length > 0 &&
                 !LooksLikeTextResponse(
                     packagePath,
                     out _);
 
+            bool cachedUsable = false;
+            bool integrityVerified = false;
+            if (cachedPayloadPresent)
+            {
+                cachedUsable = GdkPackageCacheIntegrity.VerifyOrCreate(
+                    packagePath,
+                    required.FullName,
+                    out bool receiptCreated,
+                    out string integrityReason);
+
+                if (cachedUsable)
+                {
+                    integrityVerified = true;
+                    LogGdk(receiptCreated
+                        ? $"Created a local SHA-256 cache receipt for {required.FullName}; this detects later changes but is not a publisher signature."
+                        : $"Verified the local SHA-256 cache receipt for {required.FullName}.");
+                }
+                else
+                {
+                    LogGdk($"Cached GDK package failed local integrity verification and will be downloaded again: {integrityReason}");
+                    SafeDeleteGdkPackage(packagePath);
+                }
+            }
+
             if (!cachedUsable)
             {
-                SafeDeleteFile(packagePath);
+                SafeDeleteGdkPackage(packagePath);
 
                 SetCancelation(true);
 
@@ -342,7 +366,7 @@ namespace BedrockLauncher.Handlers
                     packagePath,
                     out string downloadProblem))
             {
-                SafeDeleteFile(packagePath);
+                SafeDeleteGdkPackage(packagePath);
 
                 throw new PackageDownloadFailedException(
                     $"The CDN did not return a package for {required.FullName}: " +
@@ -350,7 +374,40 @@ namespace BedrockLauncher.Handlers
                     new InvalidDataException(downloadProblem));
             }
 
+            if (!integrityVerified)
+            {
+                if (!GdkPackageCacheIntegrity.VerifyOrCreate(
+                    packagePath,
+                    required.FullName,
+                    out bool receiptCreated,
+                    out string integrityReason))
+                {
+                    SafeDeleteGdkPackage(packagePath);
+                    throw new PackageDownloadFailedException(
+                        $"The downloaded GDK package for {required.FullName} failed local SHA-256 verification: {integrityReason}",
+                        new InvalidDataException(integrityReason));
+                }
+
+                LogGdk(receiptCreated
+                    ? $"Stored local SHA-256 cache receipt for {required.FullName}."
+                    : $"Verified local SHA-256 cache receipt for {required.FullName}.");
+            }
+
             return packagePath;
+        }
+
+        private void SafeDeleteGdkPackage(string packagePath)
+        {
+            SafeDeleteFile(packagePath);
+
+            try
+            {
+                GdkPackageCacheIntegrity.DeleteReceipt(packagePath);
+            }
+            catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException)
+            {
+                LogGdk($"Could not remove the GDK package cache receipt for {packagePath}: {ex.Message}");
+            }
         }
 
         /// <summary>
@@ -1057,7 +1114,7 @@ namespace BedrockLauncher.Handlers
                     // A damaged download would be rejected on every retry; removing it makes the next install download
                     // it again. (A downgrade refusal says nothing about the file, so it is kept for that case.)
                     LogGdk($"Removing {packagePath} after Windows rejected it, so the next install downloads it again.");
-                    handler.SafeDeleteFile(packagePath);
+                    handler.SafeDeleteGdkPackage(packagePath);
                     version.UpdateFolderSize();
                     throw;
                 }

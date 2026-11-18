@@ -17,7 +17,7 @@ namespace BedrockLauncher.Handlers
 
     /// <summary>
     /// Copies external Minecraft save data into a new installation using a staging directory.
-    /// The destination only becomes visible after the complete copy and its basic integrity checks pass.
+    /// The destination only becomes visible after the complete copy and its SHA-256 integrity checks pass.
     /// Source data is never moved or deleted by this class.
     /// </summary>
     public static class SaveDataRecoveryCopier
@@ -311,8 +311,8 @@ namespace BedrockLauncher.Handlers
             foreach (SourceFile file in files.OrderBy(item => item.RelativePath, StringComparer.OrdinalIgnoreCase))
             {
                 byte[] entry = Encoding.UTF8.GetBytes(
-                    file.RelativePath.Replace(Path.DirectorySeparatorChar, '/') + "\\0" +
-                    file.Sha256 + "\\n");
+                    file.RelativePath.Replace(Path.DirectorySeparatorChar, '/') + "\0" +
+                    file.Sha256 + "\n");
                 hash.AppendData(entry);
             }
 

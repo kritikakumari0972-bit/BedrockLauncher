@@ -171,6 +171,67 @@ namespace BedrockLauncher.Pipeline.Tests
             }
         }
 
+        [Fact]
+        public async Task CancelledDownloadKeepsOnlyResumablePartialAndNeverPromotesIt()
+        {
+            string root = CreateTempDirectory();
+            string destination = Path.Combine(root, "package.msixvc");
+            const string url = "https://downloads.example.invalid/package.msixvc";
+            byte[] package = Enumerable.Range(70, 24).Select(x => (byte)x).ToArray();
+
+            try
+            {
+                using (var cancellation = new CancellationTokenSource())
+                using (var client = new HttpClient(new DelegateHandler(_ => {
+                    var response = new HttpResponseMessage(HttpStatusCode.OK)
+                    {
+                        Content = new StreamContent(new CancelsAfterBytesStream(package, 6, cancellation))
+                    };
+                    response.Content.Headers.ContentLength = package.Length;
+                    response.Headers.ETag = new EntityTagHeaderValue("\\"cancel-v1\\"");
+                    return response;
+                })))
+                {
+                    var downloader = new ResumableHttpDownloader(client);
+                    await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
+                        downloader.DownloadAsync(url, destination, null, cancellation.Token));
+                }
+
+                string partial = destination + ".download";
+                Assert.False(File.Exists(destination));
+                Assert.True(File.Exists(partial));
+                Assert.Equal(6L, new FileInfo(partial).Length);
+
+                bool resumedFromSix = false;
+                using (var client = new HttpClient(new DelegateHandler(request => {
+                    resumedFromSix = request.Headers.Range?.Ranges.SingleOrDefault()?.From == 6;
+                    Assert.Equal("\\"cancel-v1\\"", request.Headers.IfRange?.EntityTag?.ToString());
+
+                    var response = new HttpResponseMessage(HttpStatusCode.PartialContent)
+                    {
+                        Content = new ByteArrayContent(package.Skip(6).ToArray())
+                    };
+                    response.Content.Headers.ContentRange =
+                        new ContentRangeHeaderValue(6, package.Length - 1, package.Length);
+                    response.Headers.ETag = new EntityTagHeaderValue("\\"cancel-v1\\"");
+                    return response;
+                })))
+                {
+                    var downloader = new ResumableHttpDownloader(client);
+                    await downloader.DownloadAsync(url, destination, null, CancellationToken.None);
+                }
+
+                Assert.True(resumedFromSix);
+                Assert.Equal(package, await File.ReadAllBytesAsync(destination));
+                Assert.False(File.Exists(partial));
+                Assert.False(File.Exists(partial + ".resume.json"));
+            }
+            finally
+            {
+                Directory.Delete(root, true);
+            }
+        }
+
         private static string CreateTempDirectory()
         {
             string path = Path.Combine(Path.GetTempPath(), "BedrockLauncher-DownloadTests-" + Guid.NewGuid().ToString("N"));
@@ -193,6 +254,71 @@ namespace BedrockLauncher.Pipeline.Tests
             {
                 return Task.FromResult(callback(request));
             }
+        }
+
+        private sealed class CancelsAfterBytesStream : Stream
+        {
+            private readonly byte[] bytes;
+            private readonly int limit;
+            private readonly CancellationTokenSource cancellation;
+            private int position;
+
+            public CancelsAfterBytesStream(
+                byte[] bytes,
+                int limit,
+                CancellationTokenSource cancellation)
+            {
+                this.bytes = bytes;
+                this.limit = limit;
+                this.cancellation = cancellation;
+            }
+
+            public override bool CanRead => true;
+            public override bool CanSeek => false;
+            public override bool CanWrite => false;
+            public override long Length => bytes.Length;
+            public override long Position { get => position; set => throw new NotSupportedException(); }
+
+            public override int Read(byte[] buffer, int offset, int count) =>
+                ReadCore(buffer, offset, count);
+
+            public override Task<int> ReadAsync(
+                byte[] buffer,
+                int offset,
+                int count,
+                CancellationToken cancellationToken)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+
+                if (position >= limit)
+                {
+                    cancellation.Cancel();
+                    cancellationToken.ThrowIfCancellationRequested();
+                }
+
+                int read = Math.Min(count, limit - position);
+                read = Math.Min(read, bytes.Length - position);
+                Buffer.BlockCopy(bytes, position, buffer, offset, read);
+                position += read;
+                return Task.FromResult(read);
+            }
+
+            private int ReadCore(byte[] buffer, int offset, int count)
+            {
+                if (position >= limit)
+                    throw new OperationCanceledException();
+
+                int read = Math.Min(count, limit - position);
+                read = Math.Min(read, bytes.Length - position);
+                Buffer.BlockCopy(bytes, position, buffer, offset, read);
+                position += read;
+                return read;
+            }
+
+            public override long Seek(long offset, SeekOrigin origin) => throw new NotSupportedException();
+            public override void SetLength(long value) => throw new NotSupportedException();
+            public override void Write(byte[] buffer, int offset, int count) => throw new NotSupportedException();
+            public override void Flush() { }
         }
 
         private sealed class FailsAfterBytesStream : Stream

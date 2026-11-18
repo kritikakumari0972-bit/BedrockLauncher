@@ -3,6 +3,8 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
 using BedrockLauncher.Classes;
+using BedrockLauncher.Handlers;
+using System.IO;
 
 namespace BedrockLauncher.Pages.Settings.Versions
 {
@@ -115,6 +117,11 @@ namespace BedrockLauncher.Pages.Settings.Versions
             AddSection(content, "Package integrity and trust",
                 ("UWP validation", "The launcher checks the extracted AppxManifest identity against the selected Minecraft family and architecture before promoting the extracted folder."),
                 ("GDK validation", "The launcher keeps the selected exact package identity bound to its cache path; Gaming Services / Windows performs package validation during deployment."),
+                ("Local GDK SHA-256 receipt", version.PackageType == BedrockLauncher.UpdateProcessor.Enums.PackageType.GDK &&
+                    !string.IsNullOrWhiteSpace(version.GdkPackageFilePath) &&
+                    File.Exists(GdkPackageCacheIntegrity.GetReceiptPath(version.GdkPackageFilePath))
+                    ? "Present — checked before the cached package is reused."
+                    : "Not present — it is created after a successful package download or when an older cache is first inspected."),
                 ("Trusted upstream digest", "The current upstream catalogues do not provide a trusted, signed SHA-256 manifest. A hash calculated locally can detect later file changes, but cannot prove Microsoft authorship or package authenticity."));
 
             Content = root;

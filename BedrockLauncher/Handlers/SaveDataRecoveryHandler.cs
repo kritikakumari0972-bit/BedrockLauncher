@@ -144,7 +144,8 @@ namespace BedrockLauncher.Handlers
                         MainDataModel.Default.ProgressBarState.SetProgressBarProgress(copiedBytes, totalBytes)));
 
             Trace.WriteLine(
-                $"Recovered {result.FileCount} files in {result.DirectoryCount} folders ({result.BytesCopied} bytes) to {destination}");
+                $"Recovered {result.FileCount} files in {result.DirectoryCount} folders ({result.BytesCopied} bytes) to {destination}. " +
+                $"SHA-256 manifest: {result.ManifestSha256}");
 
             MCVersion version = PickVersion(type, source.PackageType);
             await Application.Current.Dispatcher.InvokeAsync(() =>

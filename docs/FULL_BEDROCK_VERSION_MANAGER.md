@@ -72,7 +72,7 @@ Implemented:
 Important limits:
 - A UWP row marked Catalogued still has its Microsoft Store download link resolved at download time; catalogue presence is not proof that the Store will provide the package.
 - A GDK row with a listed resource is not proof that the CDN is reachable. The package is checked locally for an obvious text/error response and Windows performs package validation during registration.
-- Phase 2 now includes resumable direct HTTP downloads where the server provides a stable validator. A trusted package signature/hash manifest and a dedicated version-details screen are still outstanding.
+- Phase 2 includes resumable direct HTTP downloads where the server provides a stable validator, plus a dedicated version-details window for exact package identity, architecture, catalogue source, availability reason, and local cache location. GDK package cache files now receive a local exact-identity SHA-256 receipt and are re-hashed before reuse; this detects later corruption but is not a publisher signature. The current upstream catalogues do not publish a trusted signed SHA-256 manifest, so publisher authenticity remains an external catalogue/signing dependency rather than something the launcher can safely invent.
 - A successful Windows CI build/test run has not yet been observed for the current branch.
 
 
@@ -168,3 +168,29 @@ Verification note: the earlier Windows build and pipeline tests passed on commit
 - The copier returns a deterministic SHA-256 manifest fingerprint over sorted relative file paths and their per-file SHA-256 hashes. The recovery handler writes this fingerprint to the diagnostic log together with file count, folder count, and copied bytes.
 - Added tests for repeatable fingerprints and same-size staged-file tampering. A tampered staging copy must fail and be removed without modifying the original save data.
 - This digest is an integrity fingerprint for the recovery operation, not a signed authenticity claim: it does not prove that the original world data is malware-free or came from Microsoft.
+
+
+### Phase 2 completion slice — details and local cache integrity
+
+- Added a per-version Details action in the Version Library. It exposes the version, channel, package type, architecture, update/package IDs, exact required GDK package identity, catalogue availability and reason, source, cache state, and local paths.
+- Added local SHA-256 integrity receipts for GDK MSIXVC cache files. A receipt binds the file length and SHA-256 to the exact required package full name. The file is re-hashed before reuse; same-length changes and receipts for another package identity are rejected and cause a fresh download.
+- Receipt writes are atomic. Empty files and reparse-point cache paths are rejected. Cache cleanup removes the receipt alongside the package.
+- Regression tests cover receipt creation/reuse, same-size tampering, package-identity mismatch, and empty payload rejection.
+- Trust boundary: the receipt is created locally from the downloaded bytes. It proves only that the cached file has not changed since that local receipt was written. It cannot prove that the first download came from Microsoft or that it was an authentic package. Windows/Gaming Services still validates GDK deployment, and UWP staging still validates the exact manifest identity. A trusted signed upstream digest catalogue is not available from the current version sources.
+
+### Phase 3 install-validation slice
+
+- UWP installation now validates the actual Windows registration immediately after package registration and before save-data redirection or returning success. The registered family, manifest version, and launcher-owned install location must match the selected version. A failed or redirected registration cannot be reported as ready to play.
+- GDK continues to use the exact package identity pipeline and validates the Windows-registered package before save-data preparation; install-only paths do not activate Minecraft.
+
+### Phase 4 regression-test slice
+
+- Added a cancellation test for resumable downloads. An interrupted/cancelled transfer must not create the final cache file; the partial file can resume only from the recorded byte offset while the server validator remains unchanged.
+- Existing regression suites cover catalogue validation, resume/restart behavior, UWP manifest identity, GDK exact identity/install-only behavior, save-data backup movement, and transactional recovery import.
+- Added a Windows manual smoke-test checklist for real Appx registration, Gaming Services/MSIXVC deployment, switching, relaunch from cache, cancellation, failed download/registration, and world-data preservation.
+
+### Current verification boundary
+
+- Commit 4546ff5 passed both Windows CI workflows before the details/cache-integrity/UWP-registration/cancellation changes in this slice.
+- The new changes are being validated by the current Windows CI run; do not treat them as passed until that run completes.
+- Hosted CI tests validate the isolated pipeline and filesystem/download logic. Actual Store entitlement, Appx registration, Gaming Services deployment, and Minecraft world migration still need the Windows smoke tests on a machine with the relevant package/account state.

@@ -159,3 +159,12 @@ Verification note: these changes have been committed, but their Windows CI run h
 - Regression tests cover successful folder/file preservation, empty directories, cancellation cleanup, source mutation during copy, destination collision, and overlapping source/destination paths.
 
 Verification note: the earlier Windows build and pipeline tests passed on commit `0b65eef`. This recovery-copy slice is newer and is awaiting its own Windows CI build/test run. The copier performs structural and byte-length verification; it is not a cryptographic authenticity check for the original world files.
+
+
+### Phase 3 SHA-256 recovery integrity
+
+- Recovery copies now hash the exact source bytes with SHA-256 while streaming them into the staging folder. Source files are opened with read-only sharing during the copy so concurrent writers cannot modify the active file stream.
+- The staged file is independently hashed and compared with the source-stream digest. Before promotion, the complete staged tree is enumerated again and each staged file's SHA-256 is checked a second time, detecting same-size changes to the staging area.
+- The copier returns a deterministic SHA-256 manifest fingerprint over sorted relative file paths and their per-file SHA-256 hashes. The recovery handler writes this fingerprint to the diagnostic log together with file count, folder count, and copied bytes.
+- Added tests for repeatable fingerprints and same-size staged-file tampering. A tampered staging copy must fail and be removed without modifying the original save data.
+- This digest is an integrity fingerprint for the recovery operation, not a signed authenticity claim: it does not prove that the original world data is malware-free or came from Microsoft.

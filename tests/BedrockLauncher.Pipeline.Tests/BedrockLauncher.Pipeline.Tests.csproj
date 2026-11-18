@@ -32,6 +32,7 @@
     <Compile Include="..\..\BedrockLauncher\Handlers\UwpPackageArchiveValidator.cs" Link="Launcher\UwpPackageArchiveValidator.cs" />
     <Compile Include="..\..\BedrockLauncher\Handlers\SaveDataBackupMover.cs" Link="Launcher\SaveDataBackupMover.cs" />
     <Compile Include="..\..\BedrockLauncher\Handlers\SaveDataRecoveryCopier.cs" Link="Launcher\SaveDataRecoveryCopier.cs" />
+    <Compile Include="..\..\BedrockLauncher\Handlers\GdkPackageCacheIntegrity.cs" Link="Launcher\GdkPackageCacheIntegrity.cs" />
     <Compile Include="..\..\BedrockLauncher\Handlers\PackageRegistrationMatcher.cs" Link="Launcher\PackageRegistrationMatcher.cs" />
     <Compile Include="..\..\BedrockLauncher\Handlers\Gdk\GdkLaunchPipeline.cs" Link="Launcher\GdkLaunchPipeline.cs" />
     <Compile Include="..\..\BedrockLauncher\Handlers\Gdk\GdkInstallRecord.cs" Link="Launcher\GdkInstallRecord.cs" />

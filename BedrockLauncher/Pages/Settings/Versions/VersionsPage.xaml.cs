@@ -1,6 +1,7 @@
 ﻿using BedrockLauncher.Handlers;
 using BedrockLauncher.ViewModels;
 using System;
+using System.Diagnostics;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -34,6 +35,35 @@ namespace BedrockLauncher.Pages.Settings.Versions
         private void Page_Initialized(object sender, EventArgs e)
         {
 
+        }
+
+        /// <summary>
+        /// Opens Mojang's official, time-limited Bedrock trial for Windows.
+        /// The trial is installed and entitlement-checked by Microsoft's official flow;
+        /// this launcher does not host or unlock Minecraft game packages.
+        /// </summary>
+        private void OfficialTrialButton_Click(object sender, RoutedEventArgs e)
+        {
+            const string officialTrialUrl = "https://www.minecraft.net/en-us/free-trial";
+
+            try
+            {
+                Process.Start(new ProcessStartInfo
+                {
+                    FileName = officialTrialUrl,
+                    UseShellExecute = true
+                });
+            }
+            catch (Exception ex)
+            {
+                Trace.WriteLine($"Could not open the official Minecraft free-trial page: {ex}");
+
+                System.Windows.MessageBox.Show(
+                    $"The official trial page could not be opened automatically.\n\nOpen this address in your browser:\n{officialTrialUrl}",
+                    "Minecraft Free Trial",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Information);
+            }
         }
 
         private void RefreshVersionView()

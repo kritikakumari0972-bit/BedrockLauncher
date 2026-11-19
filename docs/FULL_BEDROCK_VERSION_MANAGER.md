@@ -25,6 +25,10 @@ Extend the existing BedrockLauncher implementation so a user can select a Minecr
 - Some older releases may be unavailable, architecture-incompatible, blocked by package dependencies, or require Microsoft account entitlements. Those versions must be marked unavailable with a clear reason rather than shown as installable.
 - Save data must be protected before package removal/replacement. Never claim worlds are safe unless the backup/restore operation has succeeded.
 
+## Free trial and licensing
+
+The launcher is free, but it does not grant a Minecraft for Windows licence. The official, limited Bedrock trial is available through Mojang's trial page. See [Package Sources, Entitlements, and Official Free Trial](PACKAGE_SOURCES_AND_FREE_TRIAL.md) for the supported hand-off and source-routing rules.
+
 ## Existing implementation to preserve
 
 - VersionDownloader and VersionManager version catalogues.
@@ -191,6 +195,8 @@ Verification note: the earlier Windows build and pipeline tests passed on commit
 
 ### Current verification boundary
 
-- Commit 4546ff5 passed both Windows CI workflows before the details/cache-integrity/UWP-registration/cancellation changes in this slice.
-- The new changes are being validated by the current Windows CI run; do not treat them as passed until that run completes.
-- Hosted CI tests validate the isolated pipeline and filesystem/download logic. Actual Store entitlement, Appx registration, Gaming Services deployment, and Minecraft world migration still need the Windows smoke tests on a machine with the relevant package/account state.
+- Commit `eb7b0463` is the current verified baseline for this feature slice.
+- Both GitHub Actions workflows completed successfully for that exact commit: **Build Test** (run `44281556127`) and **Bedrock Version Manager CI** (run `44281556309`).
+- The Windows CI results verify compilation and the regression suites on the hosted Windows runner. They do not prove that a particular Store account owns Minecraft, that every historical package URL is still reachable, or that a real user's Appx/GDK deployment and save migration work.
+- The official free-trial button is a browser hand-off to Mojang's page. The trial download, Microsoft account sign-in, install, and gameplay must be completed through the official flow.
+- Follow the Windows end-to-end checklist before calling M3/M4 release-ready.
